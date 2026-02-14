@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A4 Map Generator with PyScript (Enhanced)</title>
+
+    <!-- PyScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- PDF Generation Tools -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --color-primary: #1a237e;
+            --color-primary-light: #534bae;
+            --color-secondary: #5d4037; /* Reverted to Brown/Beige Tone */
+            --color-background: #eceff1;
+            --shadow-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            --shadow-2: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+        }
+
+        body {
+            background-color: var(--color-background);
+            font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            color: #333;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            /* height: 100vh; Removed to allow scroll on mobile */
+            /* overflow: hidden; Removed to allow scroll on mobile */
+            min-height: 100vh;
+        }
+
+        /* Desktop: Lock height and scroll internally */
+        @media (min-width: 768px) {
+            body {
+                height: 100vh;
+                overflow: hidden;
+            }
+        }
+
+        /* Material Input */
+        .input-group {
+            position: relative;
+            margin-bottom: 24px;
+        }
+        .input-field {
+            width: 100%;
+            padding: 8px 0;
+            font-size: 16px;
+            color: #333;
+            border: none;
+            border-bottom: 2px solid #ccc;
+            outline: none;
+            background: transparent;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            border-bottom-color: var(--color-primary);
+        }
+        .input-label {
+            position: absolute;
+            top: 8px;
+            left: 0;
+            font-size: 16px;
+            color: #999;
+            pointer-events: none;
+            transition: 0.2s ease all;
+        }
+        .input-field:focus ~ .input-label,
+        .input-field:not(:placeholder-shown) ~ .input-label {
+            top: -16px;
+            font-size: 12px;
+            color: var(--color-primary);
+        }
+
+        /* Material Buttons */
+        .btn {
+            background-color: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: var(--shadow-1);
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+        .btn:hover:not(:disabled) {
+            box-shadow: var(--shadow-2);
+            background-color: var(--color-primary-light);
+        }
+        .btn:disabled {
+            background-color: #9fa8da;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn.secondary {
+            background-color: white;
+            color: var(--color-primary);
+            border: 1px solid #ddd;
+        }
+        .btn.secondary.active-orientation {
+            background-color: #e8eaf6;
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+            font-weight: bold;
+        }
+
+        /* Layout */
+        .main-content {
+            display: flex;
+            flex: 1;
+            /* overflow: hidden; Removed for mobile */
+            flex-direction: column;
+        }
+        @media (min-width: 768px) {
+            .main-content {
+                flex-direction: row;
+                overflow: hidden;
+            }
+        }
+
+        /* Preview Area */
+        .preview-container {
+            flex-grow: 1;
+            background-color: #cfd8dc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            /* Ensure map has height on mobile */
+            min-height: 60vh;
+        }
+
+        #scale-wrapper {
+            transform-origin: center center;
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+        }
+
+        #paper-wrapper {
+            background: white;
+            width: 210mm; 
+            height: 297mm;
+            position: relative;
+            transition: width 0.3s, height 0.3s;
+            padding: 10mm; /* A4 Margin */
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        #paper-wrapper.landscape {
+            width: 297mm;
+            height: 210mm;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #eee;
+            border: 1px solid #ccc;
+        }
+
+        /* Compass & Overlays */
+        .compass-mark {
+            position: absolute;
+            top: 12mm;
+            right: 12mm;
+            z-index: 500;
+            pointer-events: none;
+            filter: drop-shadow(0px 1px 2px rgba(255, 255, 255, 0.8));
+        }
+
+        /* Loading Overlay */
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--color-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Tile Loading Indicator */
+        .tile-loader {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--color-primary);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .tile-loader.active {
+            opacity: 1;
+        }
+
+        /* Capture Mode (Hidden Scroll) */
+        body.capturing .preview-container {
+            overflow: visible;
+            background: white;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 0;
+        }
+        body.capturing #scale-wrapper {
+            transform: none !important;
+            box-shadow: none;
+            margin: 0;
+        }
+        body.capturing header, body.capturing aside {
+            display: none;
+        }
+
+        /* Fix for Leaflet Attribution in PDF */
+        .leaflet-container .leaflet-control-attribution {
+            margin-bottom: 2mm !important; /* Bottom margin to prevent PDF clipping */
+            margin-right: 2mm !important;  /* Right margin */
+            background-color: rgba(255, 255, 255, 0.9) !important; /* Slightly more opaque */
+            padding: 2px 6px !important; /* Adjust padding */
+            font-size: 10px !important;
+            line-height: 1.4 !important; /* Fix line-height to align text vertically */
+            display: inline-block !important; /* Ensure background wraps text correctly */
+            white-space: nowrap !important; /* Prevent wrapping */
+            border-radius: 3px;
+            box-shadow: 0 0 2px rgba(0,0,0,0.1); /* Subtle shadow for better visibility */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="bg-[#1a237e] text-white p-3 shadow-md z-10 flex-shrink-0">
+        <div class="container mx-auto flex justify-between items-center px-2">
+            <h1 class="text-lg font-bold flex items-center">
+                <span class="material-icons mr-2">map</span>
+                A4 Map Generator
+            </h1>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <!-- Controls Panel -->
+        <aside class="w-full md:w-80 bg-white p-6 shadow-lg z-20 overflow-y-auto flex-shrink-0">
+            <h2 class="text-lg font-bold mb-6 text-[#1a237e] flex items-center gap-2">
+                <span class="material-icons">settings</span> 設定
+            </h2>
+            
+            <!-- Coordinates Input -->
+            <div class="input-group">
+                <input type="text" id="coord-input" class="input-field" placeholder=" " value="35.012018, 135.767676">
+                <label for="coord-input" class="input-label">緯度, 経度*</label>
+            </div>
+
+            <!-- Update Map Button -->
+            <button id="btn-update" class="btn mb-6">
+                <span class="material-icons">refresh</span> 地図を更新
+            </button>
+
+            <!-- Helper Links -->
+            <div class="mb-8 p-3 bg-blue-50 rounded border border-blue-100">
+                <p class="text-xs text-gray-600 mb-2">*Googleマップから座標をコピーできます。</p>
+                <a id="google-maps-link" href="https://www.google.com/maps/search/?api=1&query=35.012018,135.767676" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium transition-colors">
+                    <span class="material-icons text-sm">open_in_new</span> Googleマップで場所を確認
+                </a>
+            </div>
+
+            <!-- Fixed Marker Toggle -->
+            <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
+                <span class="text-sm font-bold text-gray-700">赤い円を画面中央に固定</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-fixed-marker" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]"></div>
+                </label>
+            </div>
+
+            <!-- Hide Center Toggle -->
+            <div class="flex items-center justify-between mb-8 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
+                <span class="text-sm font-bold text-gray-700">中心を非表示</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-hide-center" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]"></div>
+                </label>
+            </div>
+
+            <!-- Orientation -->
+            <div class="mb-6">
+                <label class="block text-sm text-gray-500 mb-2 font-bold">用紙の向き</label>
+                <div class="flex gap-2">
+                    <button id="btn-portrait" class="btn secondary active-orientation w-1/2">
+                        <span class="material-icons text-sm">crop_portrait</span> 縦
+                    </button>
+                    <button id="btn-landscape" class="btn secondary w-1/2">
+                        <span class="material-icons text-sm">crop_landscape</span> 横
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Message -->
+            <div id="status-msg" class="text-xs font-bold min-h-[1.5em] mb-2 transition-colors duration-300"></div>
+
+            <!-- Actions -->
+            <div class="flex flex-col gap-3 mt-auto">
+                <div class="relative group">
+                    <button id="btn-download" class="btn">
+                        <span class="material-icons">picture_as_pdf</span> PDF保存
+                    </button>
+                    <!-- Tooltip for disabled state -->
+                    <div id="download-tooltip" class="hidden absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap">
+                        地図読み込み中...
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-[10px] text-gray-400 mt-4 text-center">
+                Powered by Leaflet, OpenStreetMap & PyScript
+            </p>
+        </aside>
+
+        <!-- Preview Area -->
+        <main class="preview-container" id="preview-container">
+            <div class="absolute top-4 left-4 text-gray-500 text-xs font-mono font-bold bg-white/50 px-2 py-1 rounded">A4 PREVIEW</div>
+            
+            <!-- Tile Loading Indicator -->
+            <div id="tile-loader" class="tile-loader">
+                <div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                地図データを読み込み中...
+            </div>
+
+            <div id="scale-wrapper">
+                <div id="paper-wrapper">
+                    <!-- Map Container -->
+                    <div class="relative w-full h-full border border-gray-300 overflow-hidden bg-gray-100">
+                        <div id="map"></div>
+                        
+                        <!-- Compass Mark -->
+                        <div class="compass-mark">
+                            <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="50" cy="50" r="42" fill="white" stroke="#000" stroke-width="4" />
+                                <path d="M50 15 L28 85 L50 70 L72 85 Z" fill="#000" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay for PDF Generation -->
+    <div id="loading-overlay">
+        <div class="spinner mb-4"></div>
+        <div class="text-xl font-bold text-[#1a237e] mb-2">PDF生成中...</div>
+        <div class="text-gray-600 text-sm text-center max-w-xs">
+            高解像度画像を作成しています。<br>
+            完了するまでこの画面を閉じないでください。
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let map;
+        let markerLayerGroup; // Group for circle and dot
+        let isLandscape = false;
+        let currentCoords = { lat: 35.012018, lng: 135.767676 };
+        let tileLayer;
+        let isTilesLoading = false;
+        let isMarkerFixed = true; // Toggle state set to true by default
+        let isCenterHidden = false; // Toggle state for center dot
+
+        // --- Map Initialization ---
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: false, 
+                attributionControl: true,
+                preferCanvas: true
+            }).setView([currentCoords.lat, currentCoords.lng], 16);
+
+            // Add Tile Layer with loading events
+            tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Tile loading event listeners
+            tileLayer.on('loading', () => setTileLoading(true));
+            tileLayer.on('load', () => setTileLoading(false));
+
+            addMarker(currentCoords.lat, currentCoords.lng);
+            
+            // Map Move Events for Fixed Marker Mode
+            map.on('move', () => {
+                if (isMarkerFixed && markerLayerGroup) {
+                    const center = map.getCenter();
+                    markerLayerGroup.eachLayer(layer => layer.setLatLng(center));
+                }
+            });
+
+            map.on('moveend', () => {
+                if (isMarkerFixed) {
+                    const center = map.getCenter();
+                    currentCoords = { lat: center.lat, lng: center.lng };
+                    
+                    // Update input field visually
+                    const input = document.getElementById('coord-input');
+                    input.value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+                    
+                    // Update Link
+                    updateGoogleMapsLink(center.lat, center.lng);
+                }
+            });
+
+            // Initial Fit
+            fitPaperToScreen();
+            window.addEventListener('resize', fitPaperToScreen);
+
+            // Toggle Button Listener
+            document.getElementById('toggle-fixed-marker').addEventListener('change', function(e) {
+                isMarkerFixed = e.target.checked;
+                if (isMarkerFixed) {
+                    // When turned ON, jump marker to current center
+                    const center = map.getCenter();
+                    addMarker(center.lat, center.lng);
+                    currentCoords = { lat: center.lat, lng: center.lng };
+                    updateGoogleMapsLink(center.lat, center.lng);
+                    
+                    // Sync Input
+                    document.getElementById('coord-input').value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+                }
+            });
+
+            // Toggle Center Dot Listener
+            document.getElementById('toggle-hide-center').addEventListener('change', function(e) {
+                isCenterHidden = e.target.checked;
+                // Re-draw marker at current position
+                addMarker(currentCoords.lat, currentCoords.lng);
+            });
+        }
+
+        // --- Helper ---
+        function updateGoogleMapsLink(lat, lng) {
+            const link = document.getElementById('google-maps-link');
+            link.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        }
+
+        // --- Loading State Control ---
+        function setTileLoading(isLoading) {
+            isTilesLoading = isLoading;
+            const loader = document.getElementById('tile-loader');
+            const btnDownload = document.getElementById('btn-download');
+            const tooltip = document.getElementById('download-tooltip');
+
+            if (isLoading) {
+                loader.classList.add('active');
+                btnDownload.disabled = true;
+                btnDownload.style.opacity = '0.7';
+                tooltip.classList.remove('hidden');
+            } else {
+                setTimeout(() => {
+                    loader.classList.remove('active');
+                    btnDownload.disabled = false;
+                    btnDownload.style.opacity = '1';
+                    tooltip.classList.add('hidden');
+                }, 500);
+            }
+        }
+
+        function addMarker(lat, lng) {
+            if (markerLayerGroup) {
+                map.removeLayer(markerLayerGroup);
+            }
+
+            const layers = [];
+
+            // Big Circle (Always visible)
+            const bigCircle = L.circleMarker([lat, lng], {
+                color: 'red',
+                fillColor: 'red',
+                fillOpacity: 0.1,
+                weight: 2,
+                radius: 40 
+            });
+            layers.push(bigCircle);
+
+            // Center Dot (Conditional)
+            if (!isCenterHidden) {
+                const smallDot = L.circleMarker([lat, lng], {
+                    color: 'white',
+                    fillColor: 'red',
+                    fillOpacity: 1,
+                    weight: 2,
+                    radius: 5
+                });
+                layers.push(smallDot);
+            }
+
+            markerLayerGroup = L.layerGroup(layers).addTo(map);
+        }
+
+        function fitPaperToScreen() {
+            const container = document.getElementById('preview-container');
+            const wrapper = document.getElementById('scale-wrapper');
+            const paper = document.getElementById('paper-wrapper');
+            const PADDING = 40;
+
+            const contW = container.clientWidth - PADDING;
+            const contH = container.clientHeight - PADDING;
+            const paperW = paper.offsetWidth;
+            const paperH = paper.offsetHeight;
+
+            const scale = Math.min(contW / paperW, contH / paperH, 1.0);
+            wrapper.style.transform = `scale(${scale})`;
+        }
+
+        // --- Called from PyScript ---
+        window.updateMapJS = function(lat, lng) {
+            try {
+                currentCoords = { lat, lng };
+                map.setView([lat, lng], 16);
+                addMarker(lat, lng);
+                updateGoogleMapsLink(lat, lng);
+                
+                // If fixed mode is on, we just updated the map center, so marker stays in center naturally
+                return true;
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+        };
+
+        // --- UI Interactions ---
+        function setOrientation(landscape) {
+            isLandscape = landscape;
+            const paper = document.getElementById('paper-wrapper');
+            const btnL = document.getElementById('btn-landscape');
+            const btnP = document.getElementById('btn-portrait');
+            
+            if (landscape) {
+                paper.classList.add('landscape');
+                btnL.classList.add('active-orientation');
+                btnP.classList.remove('active-orientation');
+            } else {
+                paper.classList.remove('landscape');
+                btnP.classList.add('active-orientation');
+                btnL.classList.remove('active-orientation');
+            }
+
+            // Wait for transition, then invalidate size to refill map
+            setTimeout(() => {
+                map.invalidateSize();
+                map.setView([currentCoords.lat, currentCoords.lng], 16, { animate: false });
+                fitPaperToScreen();
+            }, 350);
+        }
+
+        document.getElementById('btn-portrait').addEventListener('click', () => setOrientation(false));
+        document.getElementById('btn-landscape').addEventListener('click', () => setOrientation(true));
+
+        // --- PDF Generation ---
+        window.downloadPDFJS = async function() {
+            if(isTilesLoading) {
+                alert("地図データの読み込み中です。完了するまでお待ちください。");
+                return;
+            }
+
+            const overlay = document.getElementById('loading-overlay');
+            const paper = document.getElementById('paper-wrapper');
+            
+            overlay.style.display = 'flex';
+            document.body.classList.add('capturing');
+
+            // Save current view state
+            const userCenter = map.getCenter();
+            const userZoom = map.getZoom();
+            
+            // Force map to render at full resolution
+            map.invalidateSize();
+            map.setView(userCenter, userZoom, { animate: false });
+
+            // Wait for map renderer to stabilize
+            await new Promise(r => setTimeout(r, 1500));
+
+            try {
+                const canvas = await html2canvas(paper, {
+                    scale: 2, // Good balance for A4
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    scrollY: 0, // Prevent scroll offset issues
+                    width: paper.offsetWidth,
+                    height: paper.offsetHeight,
+                    ignoreElements: (element) => element.classList.contains('tile-loader')
+                });
+
+                const orientation = isLandscape ? 'l' : 'p';
+                const pdf = new jspdf.jsPDF(orientation, 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                const pdfW = isLandscape ? 297 : 210;
+                const pdfH = isLandscape ? 210 : 297;
+
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+                
+                // Formatted Timestamp
+                const now = new Date();
+                const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
+                pdf.save(`Map_${ts}.pdf`);
+
+            } catch (err) {
+                console.error(err);
+                alert("PDF生成エラー: " + err.message);
+            } finally {
+                document.body.classList.remove('capturing');
+                map.invalidateSize();
+                map.setView(userCenter, userZoom, { animate: false });
+                fitPaperToScreen();
+                overlay.style.display = 'none';
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+
+    <!-- PyScript Logic -->
+    <script type="py">
+        from pyscript import document
+        from js import window, console
+
+        def parse_coordinates(input_str):
+            try:
+                # Remove spaces and split
+                clean_str = input_str.replace(" ", "")
+                parts = clean_str.split(',')
+                
+                if len(parts) != 2:
+                    return None, "形式エラー: '緯度,経度' で入力してください"
+                
+                lat = float(parts[0])
+                lon = float(parts[1])
+                
+                if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                    return None, "数値エラー: 有効な緯度(-90~90)・経度(-180~180)ではありません"
+                    
+                return (lat, lon), None
+            except ValueError:
+                return None, "文字エラー: 半角数字で入力してください"
+
+        def show_status(msg, is_error=False):
+            el = document.getElementById("status-msg")
+            el.innerText = msg
+            if is_error:
+                el.classList.remove("text-green-600")
+                el.classList.add("text-red-600")
+            else:
+                el.classList.remove("text-red-600")
+                el.classList.add("text-green-600")
+
+        def on_update_click(event):
+            input_el = document.getElementById("coord-input")
+            raw_val = input_el.value
+
+            coords, error = parse_coordinates(raw_val)
+
+            if error:
+                show_status(error, True)
+            else:
+                lat, lon = coords
+                success = window.updateMapJS(lat, lon)
+                if success:
+                    show_status(f"地図を更新しました: {lat}, {lon}", False)
+                else:
+                    show_status("地図更新エラー: JS側で問題が発生しました", True)
+
+        def on_download_click(event):
+            window.downloadPDFJS()
+
+        def on_input_keypress(event):
+            if event.key == "Enter":
+                on_update_click(event)
+
+        # Bind Events
+        document.getElementById("btn-update").onclick = on_update_click
+        document.getElementById("btn-download").onclick = on_download_click
+        document.getElementById("coord-input").onkeypress = on_input_keypress
+    </script>
+</body>
+</html>
