@@ -337,7 +337,8 @@
         /* URL Display */
         .url-display {
             position: absolute;
-            top: 2mm;
+            top: 4mm;
+            /* Adjusted to 4mm based on user request */
             left: 10mm;
             /* Align with paper padding */
             background-color: transparent;
@@ -905,8 +906,8 @@
                         // X position: 10mm (CSS left)
                         const x = 10;
 
-                        // Y position: 2mm (CSS top)
-                        const y = 2;
+                        // Y position: 4mm (CSS top)
+                        const y = 4;
 
                         // Add link annotation
                         pdf.link(x, y, w, h, { url: link.href });
