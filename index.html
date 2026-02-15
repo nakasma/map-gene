@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A4 Map Generator with PyScript (Enhanced)</title>
+    <title>A4 Map Generator - Multi Shape</title>
 
     <!-- PyScript -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
@@ -26,34 +26,26 @@
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-    <!-- QRCode.js for QR Code Generation -->
+    <!-- QRCode.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-    <!-- Custom Styles -->
     <style>
         :root {
             --color-primary: #1a237e;
             --color-primary-light: #534bae;
-            --color-secondary: #5d4037;
-            /* Reverted to Brown/Beige Tone */
             --color-background: #eceff1;
             --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-            --shadow-2: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
         }
 
         body {
             background-color: var(--color-background);
-            font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
-            color: #333;
+            font-family: 'Roboto', sans-serif;
             margin: 0;
             display: flex;
             flex-direction: column;
-            /* height: 100vh; Removed to allow scroll on mobile */
-            /* overflow: hidden; Removed to allow scroll on mobile */
             min-height: 100vh;
         }
 
-        /* Desktop: Lock height and scroll internally */
         @media (min-width: 768px) {
             body {
                 height: 100vh;
@@ -61,75 +53,69 @@
             }
         }
 
-        /* Material Input */
+        /* Inputs */
         .input-group {
-            position: relative;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
         }
 
-        .input-field {
-            width: 100%;
-            padding: 8px 0;
-            font-size: 16px;
-            color: #333;
-            border: none;
-            border-bottom: 2px solid #ccc;
-            outline: none;
-            background: transparent;
-            transition: border-color 0.2s;
-        }
-
-        .input-field:focus {
-            border-bottom-color: var(--color-primary);
-        }
-
-        .input-label {
-            position: absolute;
-            top: 8px;
-            left: 0;
-            font-size: 16px;
-            color: #999;
-            pointer-events: none;
-            transition: 0.2s ease all;
-        }
-
-        .input-field:focus~.input-label,
-        .input-field:not(:placeholder-shown)~.input-label {
-            top: -16px;
+        label {
+            display: block;
             font-size: 12px;
-            color: var(--color-primary);
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 4px;
         }
 
-        /* Material Buttons */
+        textarea,
+        select,
+        input[type="text"],
+        input[type="color"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        /* 1行入力のスタイル（Enterキー効くように見えるスタイル） */
+        input[type="text"]:focus {
+            border-color: var(--color-primary);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(26, 35, 126, 0.1);
+        }
+
+        /* Buttons */
         .btn {
             background-color: var(--color-primary);
             color: white;
             border: none;
             border-radius: 4px;
-            padding: 12px 24px;
+            padding: 10px;
             font-size: 14px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: bold;
             cursor: pointer;
             box-shadow: var(--shadow-1);
-            transition: all 0.3s;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             width: 100%;
+            transition: 0.2s;
         }
 
         .btn:hover:not(:disabled) {
-            box-shadow: var(--shadow-2);
             background-color: var(--color-primary-light);
         }
 
         .btn:disabled {
             background-color: #9fa8da;
             cursor: not-allowed;
-            box-shadow: none;
         }
 
         .btn.secondary {
@@ -138,18 +124,22 @@
             border: 1px solid #ddd;
         }
 
-        .btn.secondary.active-orientation {
+        .btn.secondary.active {
             background-color: #e8eaf6;
-            color: var(--color-primary);
             border-color: var(--color-primary);
-            font-weight: bold;
+        }
+
+        .btn-icon-only {
+            padding: 4px;
+            width: 28px;
+            height: 28px;
+            min-width: unset;
         }
 
         /* Layout */
         .main-content {
             display: flex;
             flex: 1;
-            /* overflow: hidden; Removed for mobile */
             flex-direction: column;
         }
 
@@ -160,7 +150,7 @@
             }
         }
 
-        /* Preview Area */
+        /* Preview */
         .preview-container {
             flex-grow: 1;
             background-color: #cfd8dc;
@@ -168,28 +158,25 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
+            overflow: auto;
             position: relative;
-            overflow: hidden;
-            /* Ensure map has height on mobile */
-            min-height: 60vh;
         }
 
         #scale-wrapper {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19);
             transform-origin: center center;
             transition: transform 0.3s ease;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
         }
 
         #paper-wrapper {
             background: white;
             width: 210mm;
             height: 297mm;
-            position: relative;
-            transition: width 0.3s, height 0.3s;
             padding: 10mm;
-            /* A4 Margin */
             box-sizing: border-box;
+            position: relative;
             overflow: hidden;
+            transition: width 0.3s, height 0.3s;
         }
 
         #paper-wrapper.landscape {
@@ -200,12 +187,21 @@
         #map {
             width: 100%;
             height: 100%;
-            z-index: 1;
             background: #eee;
             border: 1px solid #ccc;
+            z-index: 1;
         }
 
-        /* Compass & Overlays */
+        /* Cursor styles for map interaction */
+        .cursor-crosshair {
+            cursor: crosshair !important;
+        }
+
+        .cursor-grab {
+            cursor: grab !important;
+        }
+
+        /* Compass */
         .compass-mark {
             position: absolute;
             top: 12mm;
@@ -215,7 +211,43 @@
             filter: drop-shadow(0px 1px 2px rgba(255, 255, 255, 0.8));
         }
 
-        /* Loading Overlay */
+        /* Overlays */
+        .overlay-box {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 400;
+            display: none;
+        }
+
+        .overlay-box.visible {
+            display: block;
+        }
+
+        .url-display {
+            top: 2mm;
+            left: 2mm;
+            padding: 2mm;
+            font-size: 8px;
+        }
+
+        .qr-display {
+            top: 10mm;
+            left: 2mm;
+            padding: 4mm;
+        }
+
+        .notes-display {
+            bottom: 3mm;
+            left: 3mm;
+            padding: 3mm;
+            font-size: 10px;
+            max-width: 50mm;
+            white-space: pre-wrap;
+        }
+
+        /* Loading */
         #loading-overlay {
             position: fixed;
             inset: 0;
@@ -246,36 +278,18 @@
             }
         }
 
-        /* Tile Loading Indicator */
-        .tile-loader {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: var(--color-primary);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            z-index: 100;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
+        /* Hide UI during capture */
+        body.capturing header,
+        body.capturing aside {
+            display: none;
         }
 
-        .tile-loader.active {
-            opacity: 1;
-        }
-
-        /* Capture Mode (Hidden Scroll) */
         body.capturing .preview-container {
-            overflow: visible;
+            padding: 0;
             background: white;
             align-items: flex-start;
             justify-content: flex-start;
-            padding: 0;
+            overflow: visible;
         }
 
         body.capturing #scale-wrapper {
@@ -284,717 +298,698 @@
             margin: 0;
         }
 
-        body.capturing header,
-        body.capturing aside {
-            display: none;
-        }
-
-        /* Fix for Leaflet Attribution in PDF */
-        .leaflet-container .leaflet-control-attribution {
-            margin-bottom: 2mm !important;
-            /* Bottom margin to prevent PDF clipping */
-            margin-right: 2mm !important;
-            /* Right margin */
-            background-color: rgba(255, 255, 255, 0.9) !important;
-            /* Slightly more opaque */
-            padding: 2px 6px !important;
-            /* Adjust padding */
-            font-size: 10px !important;
-            line-height: 1.4 !important;
-            /* Fix line-height to align text vertically */
-            display: inline-block !important;
-            /* Ensure background wraps text correctly */
-            white-space: nowrap !important;
-            /* Prevent wrapping */
-            border-radius: 3px;
-            box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
-            /* Subtle shadow for better visibility */
-        }
-
-        /* Notes Display */
-        .notes-display {
-            position: absolute;
-            bottom: 3mm;
-            left: 3mm;
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 3mm;
-            font-size: 10px;
-            line-height: 1.4;
-            max-width: 50mm;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-            border: 1px solid #ddd;
-            border-radius: 2px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            z-index: 400;
-            display: none;
-        }
-
-        .notes-display.visible {
-            display: block;
-        }
-
-        /* URL Display */
-        .url-display {
-            position: absolute;
-            top: 4mm;
-            /* Adjusted to 4mm based on user request */
-            left: 10mm;
-            /* Align with paper padding */
-            background-color: transparent;
-            padding: 0;
-            font-size: 8px;
-            font-family: sans-serif;
-            text-shadow:
-                1px 1px 0 #fff, -1px -1px 0 #fff,
-                1px -1px 0 #fff, -1px 1px 0 #fff;
-            line-height: 1.3;
-            white-space: nowrap;
-            z-index: 500;
-            /* Higher than map container border */
-            display: none;
-        }
-
-        .url-display.visible {
-            display: block;
-        }
-
-        .url-display a {
-            color: #1a237e;
-            text-decoration: underline;
-        }
-
-        /* QR Code Display */
-        /* QR Code Display */
-        .qr-display {
-            position: absolute;
-            top: 2mm;
-            left: 2mm;
-            background-color: #ffffff;
-            padding: 2mm;
-            /* No border/shadow for production/clean look when printing */
-            z-index: 450;
-            display: none;
-        }
-
-        .qr-display.visible {
-            display: block;
+        /* Utility */
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Header -->
     <header class="bg-[#1a237e] text-white p-3 shadow-md z-10 flex-shrink-0">
-        <div class="container mx-auto flex justify-between items-center px-2">
-            <h1 class="text-lg font-bold flex items-center">
-                <span class="material-icons mr-2">map</span>
-                A4 Map Generator
-            </h1>
+        <div class="container mx-auto flex items-center px-2">
+            <span class="material-icons mr-2">map</span>
+            <h1 class="text-lg font-bold">A4 Map Generator (Multi-Shape)</h1>
         </div>
     </header>
 
     <div class="main-content">
-        <!-- Controls Panel -->
-        <aside class="w-full md:w-80 bg-white p-6 shadow-lg z-20 overflow-y-auto flex-shrink-0">
-            <h2 class="text-lg font-bold mb-6 text-[#1a237e] flex items-center gap-2">
-                <span class="material-icons">settings</span> 設定
-            </h2>
+        <!-- Sidebar -->
+        <aside class="w-full md:w-80 bg-white p-4 shadow-lg z-20 overflow-y-auto flex-shrink-0 text-sm">
 
-            <!-- Coordinates Input -->
-            <div class="input-group">
-                <input type="text" id="coord-input" class="input-field" placeholder=" " value="35.012018, 135.767676">
-                <label for="coord-input" class="input-label">緯度, 経度*</label>
+            <!-- Shape Settings (Moved Top for Mode Selection) -->
+            <div class="input-group mb-4">
+                <label class="mb-2 text-[#1a237e] flex items-center gap-1 font-bold">
+                    <span class="material-icons text-sm">draw</span> 描画モード
+                </label>
+                <select id="draw-mode">
+                    <option value="point" selected>Point (点・中心)</option>
+                    <option value="line">Line (線・ルート)</option>
+                    <option value="polygon">Polygon (面・エリア)</option>
+                </select>
             </div>
 
-            <!-- Update Map Button -->
-            <button id="btn-update" class="btn mb-6">
+            <!-- Interaction Mode (Only for Line/Polygon) -->
+            <div id="interaction-mode-group"
+                class="input-group hidden bg-gray-50 p-2 rounded border border-gray-200 mb-4">
+                <label class="mb-2 text-xs font-bold text-gray-500 flex items-center gap-1">
+                    <span class="material-icons text-xs">touch_app</span> 操作モード
+                </label>
+                <div class="flex gap-4">
+                    <!-- Add Mode -->
+                    <label class="group relative flex items-center gap-1 cursor-pointer">
+                        <input type="radio" name="interaction_mode" value="add" checked>
+                        <span class="text-sm font-bold text-[#1a237e]">座標追加</span>
+                        <!-- Tooltip -->
+                        <div
+                            class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                            地図クリックで点を打ちます
+                            <div
+                                class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800">
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Move Mode -->
+                    <label class="group relative flex items-center gap-1 cursor-pointer">
+                        <input type="radio" name="interaction_mode" value="move">
+                        <span class="text-sm text-gray-600">地図移動</span>
+                        <!-- Tooltip -->
+                        <div
+                            class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                            点を打たずに移動できます
+                            <div
+                                class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800">
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Coordinates Inputs -->
+            <div class="input-group relative">
+                <!-- Single Line Input (For Point Mode) -->
+                <div id="single-input-container">
+                    <label>座標 (緯度, 経度)</label>
+                    <input type="text" id="coord-input-single" value="35.012018, 135.767676"
+                        placeholder="例: 35.012, 135.767">
+                    <div class="text-xs text-gray-400 mt-1">※Enterキーで更新</div>
+                </div>
+
+                <!-- Multi Line Input (For Line/Polygon Mode) -->
+                <div id="multi-input-container" class="hidden">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="mb-0">座標リスト</label>
+                        <div class="flex gap-1">
+                            <button id="btn-center-map"
+                                class="btn btn-icon-only bg-gray-200 text-gray-600 hover:bg-green-100 hover:text-green-600 shadow-none border border-gray-300"
+                                title="図形の中心に移動">
+                                <span class="material-icons text-sm">center_focus_strong</span>
+                            </button>
+                            <button id="btn-undo-coord"
+                                class="btn btn-icon-only bg-gray-200 text-gray-600 hover:bg-blue-100 hover:text-blue-600 shadow-none border border-gray-300"
+                                title="ひとつ戻る">
+                                <span class="material-icons text-sm">undo</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500 mb-1">※地図クリックで座標を追加</div>
+                    <textarea id="coord-input-multi" rows="5"
+                        placeholder="35.012, 135.767&#13;&#10;35.013, 135.768"></textarea>
+                </div>
+            </div>
+
+            <!-- Visual Settings (Lines/Colors) -->
+            <div class="border-t border-b border-gray-200 py-3 my-3">
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div class="input-group mb-0">
+                        <label>線の色・塗りつぶし色</label>
+                        <input type="color" id="stroke-color" value="#ff0000">
+                    </div>
+                    <div class="input-group mb-0">
+                        <label>線の太さ</label>
+                        <input type="number" id="stroke-weight" value="3" min="1" max="20">
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-update" class="btn mb-4">
                 <span class="material-icons">refresh</span> 地図を更新
             </button>
 
-            <!-- Helper Links -->
-            <div class="mb-8 p-3 bg-blue-50 rounded border border-blue-100">
-                <p class="text-xs text-gray-600 mb-2">*Googleマップから座標をコピーできます。</p>
-                <a id="google-maps-link" href="https://www.google.com/maps/search/?api=1&query=35.012018,135.767676"
-                    target="_blank" rel="noopener noreferrer"
-                    class="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium transition-colors">
-                    <span class="material-icons text-sm">open_in_new</span> Googleマップで場所を確認
-                </a>
+            <!-- Toggles -->
+            <div class="space-y-2 mb-4">
+                <!-- Center Fix Toggle -->
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border"
+                    id="toggle-fixed-container">
+                    <span>中心に固定</span>
+                    <input type="checkbox" id="toggle-fixed-marker" checked>
+                </div>
+                <!-- URL Toggle -->
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                    <span>URL表示</span>
+                    <input type="checkbox" id="toggle-show-url">
+                </div>
+                <!-- QR Toggle -->
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                    <span>QRコード表示</span>
+                    <input type="checkbox" id="toggle-show-qr">
+                </div>
+                <div class="text-[10px] text-gray-500 mt-1 px-1" id="qr-note-text">
+                    ※URLとQRコードに設定される緯度経度は、赤い円の中心座標
+                </div>
             </div>
 
-            <!-- Fixed Marker Toggle -->
-            <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
-                <span class="text-sm font-bold text-gray-700">赤い円を画面中央に固定</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggle-fixed-marker" class="sr-only peer" checked>
-                    <div
-                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
-                    </div>
-                </label>
+            <!-- Notes -->
+            <div class="input-group">
+                <label>備考欄</label>
+                <textarea id="notes-input" rows="2" placeholder="備考を入力"></textarea>
             </div>
 
-            <!-- Show Center Dot Toggle -->
-            <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
-                <span class="text-sm font-bold text-gray-700">中心の赤点を表示</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggle-show-center" class="sr-only peer" checked>
-                    <div
-                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
-                    </div>
-                </label>
-            </div>
-
-            <!-- Show URL Toggle -->
-            <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
-                <span class="text-sm font-bold text-gray-700">URL表示（左上）</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggle-show-url" class="sr-only peer">
-                    <div
-                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
-                    </div>
-                </label>
-            </div>
-
-            <!-- Show QR Code Toggle -->
-            <div class="flex items-center justify-between mb-8 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
-                <span class="text-sm font-bold text-gray-700">QRコード表示（左上）</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggle-show-qr" class="sr-only peer">
-                    <div
-                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
-                    </div>
-                </label>
-            </div>
-
-            <!-- Notes Input -->
-            <div class="mb-8">
-                <label class="block text-sm text-gray-500 mb-2 font-bold">備考欄</label>
-                <textarea id="notes-input"
-                    class="w-full p-3 border border-gray-300 rounded focus:border-[#1a237e] focus:outline-none resize-none text-sm"
-                    rows="3" placeholder="左下に表示する備考を入力してください"></textarea>
-            </div>
             <!-- Orientation -->
-            <div class="mb-6">
-                <label class="block text-sm text-gray-500 mb-2 font-bold">用紙の向き</label>
+            <div class="input-group">
+                <label>用紙の向き</label>
                 <div class="flex gap-2">
-                    <button id="btn-portrait" class="btn secondary active-orientation w-1/2">
-                        <span class="material-icons text-sm">crop_portrait</span> 縦
-                    </button>
-                    <button id="btn-landscape" class="btn secondary w-1/2">
-                        <span class="material-icons text-sm">crop_landscape</span> 横
-                    </button>
+                    <button id="btn-portrait" class="btn secondary active w-1/2">縦</button>
+                    <button id="btn-landscape" class="btn secondary w-1/2">横</button>
                 </div>
             </div>
 
-            <!-- Status Message -->
-            <div id="status-msg" class="text-xs font-bold min-h-[1.5em] mb-2 transition-colors duration-300"></div>
+            <!-- Status -->
+            <div id="status-msg" class="text-xs font-bold mb-2 min-h-[1.5em] text-center"></div>
 
-            <!-- Actions -->
-            <div class="flex flex-col gap-3 mt-auto">
-                <div class="relative group">
-                    <button id="btn-download" class="btn">
-                        <span class="material-icons">picture_as_pdf</span> PDF保存
-                    </button>
-                    <!-- Tooltip for disabled state -->
-                    <div id="download-tooltip"
-                        class="hidden absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap">
-                        地図読み込み中...
-                    </div>
-                </div>
-            </div>
+            <!-- Download -->
+            <button id="btn-download" class="btn">
+                <span class="material-icons">picture_as_pdf</span> PDF保存
+            </button>
 
-            <p class="text-[10px] text-gray-400 mt-4 text-center">
-                Powered by Leaflet, OpenStreetMap & PyScript
-            </p>
         </aside>
 
-        <!-- Preview Area -->
+        <!-- Preview -->
         <main class="preview-container" id="preview-container">
-            <div class="absolute top-4 left-4 text-gray-500 text-xs font-mono font-bold bg-white/50 px-2 py-1 rounded">
-                A4 PREVIEW</div>
-
-            <!-- Tile Loading Indicator -->
-            <div id="tile-loader" class="tile-loader">
-                <div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                地図データを読み込み中...
-            </div>
-
             <div id="scale-wrapper">
                 <div id="paper-wrapper">
-                    <!-- URL Display (Outside Map Container) -->
-                    <div id="url-display" class="url-display">
-                        <a id="url-link" href="" target="_blank" rel="noopener noreferrer"></a>
-                    </div>
-
-                    <!-- Map Container -->
-                    <div class="relative w-full h-full border border-gray-300 overflow-hidden bg-gray-100">
+                    <div class="relative w-full h-full border border-gray-300 bg-gray-100 overflow-hidden">
                         <div id="map"></div>
 
-                        <!-- Compass Mark -->
+                        <!-- Compass -->
                         <div class="compass-mark">
-                            <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <svg width="40" height="40" viewBox="0 0 100 100">
                                 <circle cx="50" cy="50" r="42" fill="white" stroke="#000" stroke-width="4" />
                                 <path d="M50 15 L28 85 L50 70 L72 85 Z" fill="#000" />
                             </svg>
                         </div>
 
-                        <!-- QR Code Display -->
-                        <div id="qr-display" class="qr-display">
+                        <!-- Overlays -->
+                        <div id="url-display" class="overlay-box url-display">
+                            <a id="url-link" href="#" target="_blank"></a>
+                        </div>
+                        <div id="qr-display" class="overlay-box qr-display">
                             <div id="qr-code"></div>
                         </div>
-
-                        <!-- Notes Display -->
-                        <div id="notes-display" class="notes-display"></div>
+                        <div id="notes-display" class="overlay-box notes-display"></div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Loading Overlay for PDF Generation -->
+    <!-- Loading Overlay -->
     <div id="loading-overlay">
         <div class="spinner mb-4"></div>
-        <div class="text-xl font-bold text-[#1a237e] mb-2">PDF生成中...</div>
-        <div class="text-gray-600 text-sm text-center max-w-xs">
-            高解像度画像を作成しています。<br>
-            完了するまでこの画面を閉じないでください。
-        </div>
+        <div class="font-bold text-[#1a237e]">PDF生成中...</div>
     </div>
 
-    <!-- JavaScript Logic -->
+    <!-- JS Logic -->
     <script>
         let map;
-        let markerLayerGroup; // Group for circle and dot
+        let drawnLayerGroup;
         let isLandscape = false;
-        let currentCoords = { lat: 35.012018, lng: 135.767676 };
-        let tileLayer;
-        let isTilesLoading = false;
-        let isMarkerFixed = true; // Toggle state set to true by default
-        let isCenterVisible = true; // Toggle state for center dot (Default: Visible)
-        let isUrlVisible = false; // Toggle state for URL display
-        let isQrVisible = false; // Toggle state for QR code display
+        let currentMode = 'point';
+        let currentCenter = { lat: 35.012018, lng: 135.767676 };
+        // Current coords for overlays
+        let currentOverlayCoords = { lat: 35.012018, lng: 135.767676 };
 
-        // --- Map Initialization ---
         function initMap() {
             map = L.map('map', {
                 zoomControl: false,
                 attributionControl: true,
                 preferCanvas: true
-            }).setView([currentCoords.lat, currentCoords.lng], 16);
+            }).setView([currentCenter.lat, currentCenter.lng], 16);
 
-            // Add Tile Layer with loading events
-            tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&copy; OpenStreetMap'
             }).addTo(map);
 
-            // Tile loading event listeners
-            tileLayer.on('loading', () => setTileLoading(true));
-            tileLayer.on('load', () => setTileLoading(false));
+            drawnLayerGroup = L.layerGroup().addTo(map);
 
-            addMarker(currentCoords.lat, currentCoords.lng);
+            // Initial Draw (Point Mode)
+            updateMapJS([{ lat: currentCenter.lat, lng: currentCenter.lng }], 'point', {
+                color: '#ff0000', weight: 3, fillColor: '#ff0000', fillOpacity: 0.2
+            });
 
-            // Map Move Events for Fixed Marker Mode
+            // --- Event Handlers ---
+
+            // Map Click (Add points)
+            map.on('click', (e) => {
+                const mode = document.getElementById('draw-mode').value;
+                const fixed = document.getElementById('toggle-fixed-marker').checked;
+
+                if (mode === 'point') {
+                    // In Point mode: Move marker to click location
+                    if (!fixed) {
+                        // If not fixed to center, clicking moves the single marker
+                        const ta = document.getElementById('coord-input-single');
+                        ta.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+                        document.getElementById('btn-update').click();
+                    } else {
+                        // If fixed to center, pan map so center is at click
+                        map.panTo(e.latlng);
+                    }
+                } else {
+                    // Line/Polygon Mode
+
+                    // CHECK INTERACTION MODE
+                    const interactionMode = document.querySelector('input[name="interaction_mode"]:checked').value;
+                    if (interactionMode === 'move') {
+                        return; // Do nothing (allow map drag/zoom only)
+                    }
+
+                    // Append to textarea
+                    const ta = document.getElementById('coord-input-multi');
+                    const newCoord = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+                    if (ta.value.trim() === '') {
+                        ta.value = newCoord;
+                    } else {
+                        ta.value = ta.value.trim() + '\n' + newCoord;
+                    }
+                    // Auto-update preview
+                    document.getElementById('btn-update').click();
+                }
+            });
+
+            // Map Move (Sync Single Input in Point + Fixed Mode)
             map.on('move', () => {
-                if (isMarkerFixed && markerLayerGroup) {
+                const mode = document.getElementById('draw-mode').value;
+                const fixed = document.getElementById('toggle-fixed-marker').checked;
+
+                if (mode === 'point' && fixed) {
                     const center = map.getCenter();
-                    markerLayerGroup.eachLayer(layer => layer.setLatLng(center));
+                    const ta = document.getElementById('coord-input-single');
+                    ta.value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+
+                    // Live update marker
+                    // Also update overlay coords
+                    currentOverlayCoords = { lat: center.lat, lng: center.lng };
+                    updateMapJS([{ lat: center.lat, lng: center.lng }], 'point', getStyleSettings());
+                    updateOverlays(center.lat, center.lng);
                 }
             });
 
+            // Map Move End (Finalize Sync)
             map.on('moveend', () => {
-                if (isMarkerFixed) {
+                const mode = document.getElementById('draw-mode').value;
+                const fixed = document.getElementById('toggle-fixed-marker').checked;
+
+                if (mode === 'point' && fixed) {
                     const center = map.getCenter();
-                    currentCoords = { lat: center.lat, lng: center.lng };
-
-                    // Update input field visually
-                    const input = document.getElementById('coord-input');
-                    input.value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
-
-                    // Update Link
-                    updateGoogleMapsLink(center.lat, center.lng);
-
-                    // Update URL and QR code if visible
-                    updateUrlDisplay();
-                    updateQrDisplay();
+                    currentOverlayCoords = { lat: center.lat, lng: center.lng };
+                    updateOverlays(center.lat, center.lng);
                 }
             });
 
-            // Initial Fit
             fitPaperToScreen();
             window.addEventListener('resize', fitPaperToScreen);
 
-            // Toggle Button Listener
-            document.getElementById('toggle-fixed-marker').addEventListener('change', function (e) {
-                isMarkerFixed = e.target.checked;
-                if (isMarkerFixed) {
-                    // When turned ON, jump marker to current center
-                    const center = map.getCenter();
-                    addMarker(center.lat, center.lng);
-                    currentCoords = { lat: center.lat, lng: center.lng };
-                    updateGoogleMapsLink(center.lat, center.lng);
+            setupUIListeners();
+        }
 
-                    // Sync Input
-                    document.getElementById('coord-input').value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+        function getStyleSettings() {
+            const color = document.getElementById('stroke-color').value;
+            return {
+                color: color,
+                weight: parseInt(document.getElementById('stroke-weight').value, 10),
+                fillColor: color, // Use stroke color
+                fillOpacity: 0.2  // Fixed 20%
+            };
+        }
+
+        function updateCursorStyle() {
+            const mapContainer = document.getElementById('map');
+            const mode = document.getElementById('draw-mode').value;
+            const fixed = document.getElementById('toggle-fixed-marker').checked;
+
+            // Reset
+            mapContainer.classList.remove('cursor-crosshair');
+            mapContainer.classList.remove('cursor-grab');
+
+            if (mode === 'point') {
+                if (!fixed) {
+                    mapContainer.classList.add('cursor-crosshair');
+                } else {
+                    // Default hand (grab) is fine for panning, but explicit is ok too
+                    mapContainer.classList.add('cursor-grab');
+                }
+            } else {
+                // Line/Poly
+                const interactionMode = document.querySelector('input[name="interaction_mode"]:checked').value;
+                if (interactionMode === 'add') {
+                    mapContainer.classList.add('cursor-crosshair');
+                } else {
+                    mapContainer.classList.add('cursor-grab');
+                }
+            }
+        }
+
+        window.updateMapJS = function (coordsList, mode, style) {
+            if (typeof coordsList === 'string') coordsList = JSON.parse(coordsList);
+            if (typeof style === 'string') style = JSON.parse(style);
+
+            drawnLayerGroup.clearLayers();
+            currentMode = mode;
+
+            updateCursorStyle();
+
+            if (!coordsList || coordsList.length === 0) return false;
+
+            if (mode === 'point') {
+                coordsList.forEach(c => {
+                    L.circleMarker([c.lat, c.lng], {
+                        color: style.color, weight: style.weight,
+                        fillColor: style.fillColor, fillOpacity: style.fillOpacity, radius: 20
+                    }).addTo(drawnLayerGroup);
+                    L.circleMarker([c.lat, c.lng], {
+                        color: 'white', fillColor: style.color, fillOpacity: 1, weight: 1, radius: 4
+                    }).addTo(drawnLayerGroup);
+                });
+
+                if (coordsList.length === 1) {
+                    const c = coordsList[0];
+                    const center = map.getCenter();
+                    const dist = Math.abs(c.lat - center.lat) + Math.abs(c.lng - center.lng);
+                    const fixed = document.getElementById('toggle-fixed-marker').checked;
+                    if (dist > 0.00001 && fixed) {
+                        map.setView([c.lat, c.lng], map.getZoom(), { animate: false });
+                    }
+                }
+
+            } else if (mode === 'line') {
+                const latlngs = coordsList.map(c => [c.lat, c.lng]);
+                L.polyline(latlngs, { color: style.color, weight: style.weight }).addTo(drawnLayerGroup);
+                coordsList.forEach(c => {
+                    L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
+                });
+            } else if (mode === 'polygon') {
+                const latlngs = coordsList.map(c => [c.lat, c.lng]);
+                L.polygon(latlngs, {
+                    color: style.color, weight: style.weight,
+                    fillColor: style.fillColor, fillOpacity: style.fillOpacity
+                }).addTo(drawnLayerGroup);
+                coordsList.forEach(c => {
+                    L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
+                });
+            }
+
+            if (mode !== 'point' && coordsList.length > 1) {
+                // map.fitBounds(L.latLngBounds(coordsList.map(c => [c.lat, c.lng])), { padding: [50, 50] });
+            } else if (mode !== 'point' && coordsList.length === 1) {
+                map.setView([coordsList[0].lat, coordsList[0].lng], map.getZoom());
+            }
+
+            if (mode === 'point' && !document.getElementById('toggle-fixed-marker').checked && coordsList.length === 1) {
+                map.setView([coordsList[0].lat, coordsList[0].lng], map.getZoom());
+            }
+
+            if (coordsList.length > 0) {
+                // Update Overlay Coords based on the first item (marker/start point)
+                currentOverlayCoords = { lat: coordsList[0].lat, lng: coordsList[0].lng };
+                updateOverlays(coordsList[0].lat, coordsList[0].lng);
+            }
+            return true;
+        };
+
+        function updateOverlays(lat, lng) {
+            const showUrl = document.getElementById('toggle-show-url').checked;
+            const urlBox = document.getElementById('url-display');
+            const urlLink = document.getElementById('url-link');
+
+            if (showUrl) {
+                const gUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                urlLink.href = gUrl; urlLink.textContent = gUrl;
+                urlBox.classList.add('visible');
+            } else urlBox.classList.remove('visible');
+
+            const showQr = document.getElementById('toggle-show-qr').checked;
+            const qrBox = document.getElementById('qr-display');
+            const qrDiv = document.getElementById('qr-code');
+
+            if (showQr) {
+                const gUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, { text: gUrl, width: 80, height: 80 });
+                qrBox.classList.add('visible');
+            } else qrBox.classList.remove('visible');
+        }
+
+        function setupUIListeners() {
+            // Mode Switching Logic
+            const drawMode = document.getElementById('draw-mode');
+            const singleContainer = document.getElementById('single-input-container');
+            const multiContainer = document.getElementById('multi-input-container');
+            const toggleFixedContainer = document.getElementById('toggle-fixed-container');
+            const interactionModeGroup = document.getElementById('interaction-mode-group');
+
+            drawMode.addEventListener('change', (e) => {
+                const mode = e.target.value;
+                const singleInput = document.getElementById('coord-input-single');
+                const multiInput = document.getElementById('coord-input-multi');
+
+                const qrNoteText = document.getElementById('qr-note-text');
+
+                if (mode === 'point') {
+                    singleContainer.classList.remove('hidden');
+                    multiContainer.classList.add('hidden');
+                    toggleFixedContainer.classList.remove('hidden');
+                    interactionModeGroup.classList.add('hidden'); // Hide interaction mode for point
+                    qrNoteText.textContent = '※URLとQRコードに設定される緯度経度は、赤い円の中心座標';
+                } else {
+                    // Line or Polygon
+                    singleContainer.classList.add('hidden');
+                    multiContainer.classList.remove('hidden');
+                    toggleFixedContainer.classList.add('hidden');
+                    interactionModeGroup.classList.remove('hidden'); // Show interaction mode
+                    qrNoteText.textContent = '※URLとQRコードに設定される緯度経度は、座標リストの1行目となる。';
+                }
+
+                // Explicitly clear inputs when switching to line/poly
+                if (mode !== 'point') {
+                    multiInput.value = '';
+                    document.getElementById('btn-update').click();
+                } else {
+                    document.getElementById('btn-update').click();
+                }
+
+                updateCursorStyle();
+            });
+
+            // Interaction Mode Change (Update cursor)
+            const interactionRadios = document.querySelectorAll('input[name="interaction_mode"]');
+            interactionRadios.forEach(radio => {
+                radio.addEventListener('change', updateCursorStyle);
+            });
+
+            // Undo Button Logic
+            document.getElementById('btn-undo-coord').addEventListener('click', () => {
+                const ta = document.getElementById('coord-input-multi');
+                let val = ta.value.trim();
+                if (val) {
+                    const lastNewLine = val.lastIndexOf('\n');
+                    if (lastNewLine !== -1) {
+                        ta.value = val.substring(0, lastNewLine);
+                    } else {
+                        ta.value = ''; // Only one line, clear it
+                    }
+                    document.getElementById('btn-update').click();
                 }
             });
 
-            // Toggle Center Dot Listener
-            document.getElementById('toggle-show-center').addEventListener('change', function (e) {
-                isCenterVisible = e.target.checked;
-                // Re-draw marker at current position
-                addMarker(currentCoords.lat, currentCoords.lng);
-            });
+            // Center Map Logic (Avg of Max/Min)
+            document.getElementById('btn-center-map').addEventListener('click', () => {
+                const val = document.getElementById('coord-input-multi').value.trim();
+                if (!val) return;
 
-            // Notes Input Listener
-            document.getElementById('notes-input').addEventListener('input', function (e) {
-                updateNotesDisplay(e.target.value);
-            });
+                const lines = val.split('\n');
+                let lats = [], lngs = [];
 
-            // Toggle URL Display Listener
-            document.getElementById('toggle-show-url').addEventListener('change', function (e) {
-                isUrlVisible = e.target.checked;
-                updateUrlDisplay();
-            });
-
-            // Toggle QR Code Display Listener
-            document.getElementById('toggle-show-qr').addEventListener('change', function (e) {
-                isQrVisible = e.target.checked;
-                updateQrDisplay();
-            });
-        }
-
-        // --- Update URL Display ---
-        function updateUrlDisplay() {
-            const urlDisplay = document.getElementById('url-display');
-            const urlLink = document.getElementById('url-link');
-
-            if (isUrlVisible) {
-                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
-                urlLink.href = googleMapsUrl;
-                urlLink.textContent = googleMapsUrl;
-                urlDisplay.classList.add('visible');
-            } else {
-                urlDisplay.classList.remove('visible');
-            }
-        }
-
-        // --- Update QR Code Display ---
-        let qrCodeInstance = null;
-        function updateQrDisplay() {
-            const qrDisplay = document.getElementById('qr-display');
-            const qrCodeContainer = document.getElementById('qr-code');
-
-            if (isQrVisible) {
-                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
-
-                // Clear previous QR code
-                qrCodeContainer.innerHTML = '';
-
-                // Generate new QR code (larger size, balanced error correction)
-                qrCodeInstance = new QRCode(qrCodeContainer, {
-                    text: googleMapsUrl,
-                    width: 80,
-                    height: 80,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.M
+                lines.forEach(line => {
+                    const parts = line.replace(' ', '').replace('　', '').split(',');
+                    if (parts.length >= 2) {
+                        const lat = parseFloat(parts[0]);
+                        const lng = parseFloat(parts[1]);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            lats.push(lat);
+                            lngs.push(lng);
+                        }
+                    }
                 });
 
-                qrDisplay.classList.add('visible');
-            } else {
-                qrDisplay.classList.remove('visible');
-            }
-        }
+                if (lats.length > 0) {
+                    const minLat = Math.min(...lats);
+                    const maxLat = Math.max(...lats);
+                    const minLng = Math.min(...lngs);
+                    const maxLng = Math.max(...lngs);
 
-        // --- Update Notes Display ---
-        function updateNotesDisplay(text) {
-            const notesDisplay = document.getElementById('notes-display');
-            if (text.trim()) {
-                notesDisplay.textContent = text;
-                notesDisplay.classList.add('visible');
-            } else {
-                notesDisplay.classList.remove('visible');
-            }
-        }
+                    const centerLat = (minLat + maxLat) / 2;
+                    const centerLng = (minLng + maxLng) / 2;
 
-        // --- Helper ---
-        function updateGoogleMapsLink(lat, lng) {
-            const link = document.getElementById('google-maps-link');
-            link.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-        }
-
-        // --- Loading State Control ---
-        function setTileLoading(isLoading) {
-            isTilesLoading = isLoading;
-            const loader = document.getElementById('tile-loader');
-            const btnDownload = document.getElementById('btn-download');
-            const tooltip = document.getElementById('download-tooltip');
-
-            if (isLoading) {
-                loader.classList.add('active');
-                btnDownload.disabled = true;
-                btnDownload.style.opacity = '0.7';
-                tooltip.classList.remove('hidden');
-            } else {
-                setTimeout(() => {
-                    loader.classList.remove('active');
-                    btnDownload.disabled = false;
-                    btnDownload.style.opacity = '1';
-                    tooltip.classList.add('hidden');
-                }, 500);
-            }
-        }
-
-        function addMarker(lat, lng) {
-            if (markerLayerGroup) {
-                map.removeLayer(markerLayerGroup);
-            }
-
-            const layers = [];
-
-            // Big Circle (Always visible)
-            const bigCircle = L.circleMarker([lat, lng], {
-                color: 'red',
-                fillColor: 'red',
-                fillOpacity: 0.1,
-                weight: 2,
-                radius: 40
+                    map.panTo([centerLat, centerLng]);
+                }
             });
-            layers.push(bigCircle);
 
-            // Center Dot (Conditional)
-            if (isCenterVisible) {
-                const smallDot = L.circleMarker([lat, lng], {
-                    color: 'white',
-                    fillColor: 'red',
-                    fillOpacity: 1,
-                    weight: 2,
-                    radius: 5
+            // Notes
+            document.getElementById('notes-input').addEventListener('input', (e) => {
+                const el = document.getElementById('notes-display');
+                if (e.target.value.trim()) { el.textContent = e.target.value; el.classList.add('visible'); }
+                else el.classList.remove('visible');
+            });
+
+            // Toggles
+            ['toggle-show-url', 'toggle-show-qr'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    // Update using current overlay coords, NOT map center (unless fixed)
+                    updateOverlays(currentOverlayCoords.lat, currentOverlayCoords.lng);
                 });
-                layers.push(smallDot);
-            }
+            });
 
-            markerLayerGroup = L.layerGroup(layers).addTo(map);
+            // Fixed Toggle Change (update cursor)
+            document.getElementById('toggle-fixed-marker').addEventListener('change', updateCursorStyle);
+
+            // Orientation
+            const setOrient = (land) => {
+                isLandscape = land;
+                const p = document.getElementById('paper-wrapper');
+                p.className = land ? 'landscape' : '';
+                document.getElementById('btn-portrait').classList.toggle('active', !land);
+                document.getElementById('btn-landscape').classList.toggle('active', land);
+                setTimeout(() => { map.invalidateSize(); fitPaperToScreen(); }, 300);
+            };
+            document.getElementById('btn-portrait').onclick = () => setOrient(false);
+            document.getElementById('btn-landscape').onclick = () => setOrient(true);
         }
 
         function fitPaperToScreen() {
             const container = document.getElementById('preview-container');
             const wrapper = document.getElementById('scale-wrapper');
             const paper = document.getElementById('paper-wrapper');
-            const PADDING = 40;
-
-            const contW = container.clientWidth - PADDING;
-            const contH = container.clientHeight - PADDING;
+            if (!paper) return;
+            const contW = container.clientWidth - 40;
+            const contH = container.clientHeight - 40;
             const paperW = paper.offsetWidth;
             const paperH = paper.offsetHeight;
-
             const scale = Math.min(contW / paperW, contH / paperH, 1.0);
             wrapper.style.transform = `scale(${scale})`;
         }
 
-        // --- Called from PyScript ---
-        window.updateMapJS = function (lat, lng) {
-            try {
-                currentCoords = { lat, lng };
-                map.setView([lat, lng], 16);
-                addMarker(lat, lng);
-                updateGoogleMapsLink(lat, lng);
-
-                // Update URL and QR code if visible
-                updateUrlDisplay();
-                updateQrDisplay();
-
-                // If fixed mode is on, we just updated the map center, so marker stays in center naturally
-                return true;
-            } catch (e) {
-                console.error(e);
-                return false;
-            }
-        };
-
-        // --- UI Interactions ---
-        function setOrientation(landscape) {
-            isLandscape = landscape;
-            const paper = document.getElementById('paper-wrapper');
-            const btnL = document.getElementById('btn-landscape');
-            const btnP = document.getElementById('btn-portrait');
-
-            if (landscape) {
-                paper.classList.add('landscape');
-                btnL.classList.add('active-orientation');
-                btnP.classList.remove('active-orientation');
-            } else {
-                paper.classList.remove('landscape');
-                btnP.classList.add('active-orientation');
-                btnL.classList.remove('active-orientation');
-            }
-
-            // Wait for transition, then invalidate size to refill map
-            setTimeout(() => {
-                map.invalidateSize();
-                map.setView([currentCoords.lat, currentCoords.lng], 16, { animate: false });
-                fitPaperToScreen();
-            }, 350);
-        }
-
-        document.getElementById('btn-portrait').addEventListener('click', () => setOrientation(false));
-        document.getElementById('btn-landscape').addEventListener('click', () => setOrientation(true));
-
-        // --- PDF Generation ---
         window.downloadPDFJS = async function () {
-            if (isTilesLoading) {
-                alert("地図データの読み込み中です。完了するまでお待ちください。");
-                return;
-            }
-
             const overlay = document.getElementById('loading-overlay');
             const paper = document.getElementById('paper-wrapper');
-
             overlay.style.display = 'flex';
             document.body.classList.add('capturing');
-
-            // Save current view state
-            const userCenter = map.getCenter();
-            const userZoom = map.getZoom();
-
-            // Force map to render at full resolution
-            map.invalidateSize();
-            map.setView(userCenter, userZoom, { animate: false });
-
-            // Wait for map renderer to stabilize
-            await new Promise(r => setTimeout(r, 1500));
+            const c = map.getCenter(); const z = map.getZoom();
+            map.invalidateSize(); await new Promise(r => setTimeout(r, 1000));
 
             try {
-                const canvas = await html2canvas(paper, {
-                    scale: 3, // Increased scale for better QR code readability
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false,
-                    scrollY: 0, // Prevent scroll offset issues
-                    width: paper.offsetWidth,
-                    height: paper.offsetHeight,
-                    ignoreElements: (element) => element.classList.contains('tile-loader')
-                });
-
-                const orientation = isLandscape ? 'l' : 'p';
-                const pdf = new jspdf.jsPDF(orientation, 'mm', 'a4');
-                const imgData = canvas.toDataURL('image/jpeg', 0.8);
-                const pdfW = isLandscape ? 297 : 210;
-                const pdfH = isLandscape ? 210 : 297;
-
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
-
-                // Add clickable link over the URL display area if visible
-                if (isUrlVisible) {
-                    const urlDisplay = document.getElementById('url-display');
-                    const link = document.getElementById('url-link');
-
-                    if (urlDisplay && link && link.href) {
-                        // Calculate dimensions in PDF coordinates
-                        // The paper wrapper is the capture target.
-                        // The URL display is positioned absolutely at top: 2mm, left: 10mm relative to the paper wrapper
-
-                        // Calculate width and height based on the ratio between paper pixel width and PDF mm width
-                        const paperWidthPx = paper.offsetWidth;
-                        const ratio = pdfW / paperWidthPx;
-
-                        const w = urlDisplay.offsetWidth * ratio;
-                        const h = urlDisplay.offsetHeight * ratio;
-
-                        // X position: 10mm (CSS left)
-                        const x = 10;
-
-                        // Y position: 4mm (CSS top)
-                        const y = 4;
-
-                        // Add link annotation
-                        pdf.link(x, y, w, h, { url: link.href });
-                    }
+                const canvas = await html2canvas(paper, { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 });
+                const pdf = new jspdf.jsPDF(isLandscape ? 'l' : 'p', 'mm', 'a4');
+                const img = canvas.toDataURL('image/jpeg', 0.8);
+                pdf.addImage(img, 'JPEG', 0, 0, isLandscape ? 297 : 210, isLandscape ? 210 : 297);
+                if (document.getElementById('toggle-show-url').checked) {
+                    const l = document.getElementById('url-link');
+                    if (l.href) pdf.link(12, 12, 50, 5, { url: l.href });
                 }
-
-                // Formatted Timestamp
-                const now = new Date();
-                const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
+                const ts = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
                 pdf.save(`Map_${ts}.pdf`);
-
-            } catch (err) {
-                console.error(err);
-                alert("PDF生成エラー: " + err.message);
-            } finally {
-                document.body.classList.remove('capturing');
-                map.invalidateSize();
-                map.setView(userCenter, userZoom, { animate: false });
-                fitPaperToScreen();
-                overlay.style.display = 'none';
+            } catch (e) { alert("Error: " + e.message); }
+            finally {
+                document.body.classList.remove('capturing'); overlay.style.display = 'none';
+                map.invalidateSize(); map.setView(c, z, { animate: false }); fitPaperToScreen();
             }
         };
 
         document.addEventListener('DOMContentLoaded', initMap);
     </script>
 
-    <!-- PyScript Logic -->
+    <!-- Python Logic -->
     <script type="py">
         from pyscript import document
         from js import window, console
+        import json
 
-        def parse_coordinates(input_str):
-            try:
-                # Remove spaces and split
-                clean_str = input_str.replace(" ", "")
-                parts = clean_str.split(',')
-                
-                if len(parts) != 2:
-                    return None, "形式エラー: '緯度,経度' で入力してください"
-                
-                lat = float(parts[0])
-                lon = float(parts[1])
-                
-                if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-                    return None, "数値エラー: 有効な緯度(-90~90)・経度(-180~180)ではありません"
-                    
-                return (lat, lon), None
-            except ValueError:
-                return None, "文字エラー: 半角数字で入力してください"
-
-        def show_status(msg, is_error=False):
-            el = document.getElementById("status-msg")
-            el.innerText = msg
-            if is_error:
-                el.classList.remove("text-green-600")
-                el.classList.add("text-red-600")
+        def get_input_values():
+            mode = document.getElementById("draw-mode").value
+            
+            # Switch reading source based on mode
+            if mode == "point":
+                text = document.getElementById("coord-input-single").value
             else:
-                el.classList.remove("text-red-600")
-                el.classList.add("text-green-600")
+                text = document.getElementById("coord-input-multi").value
+
+            color_val = document.getElementById("stroke-color").value
+            style = {
+                "color": color_val,
+                "weight": document.getElementById("stroke-weight").value,
+                "fillColor": color_val,
+                "fillOpacity": 0.2
+            }
+            return text, mode, style
+
+        def parse_coordinates_list(text):
+            lines = text.strip().split('\n')
+            coords = []
+            error = None
+            
+            for line in lines:
+                line = line.strip()
+                if not line: continue
+                # Sanitize input (handle full-width spaces etc if needed, here simple replace)
+                parts = line.replace(' ', '').replace('　', '').split(',')
+                if len(parts) >= 2:
+                    try:
+                        lat = float(parts[0])
+                        lng = float(parts[1])
+                        coords.append({"lat": lat, "lng": lng})
+                    except ValueError:
+                        error = f"無効な数値: {line}"
+                        break
+                else:
+                    error = f"形式エラー: {line}"
+                    break
+            
+            if not coords and not error:
+                error = "座標を入力してください"
+                
+            return coords, error
 
         def on_update_click(event):
-            input_el = document.getElementById("coord-input")
-            raw_val = input_el.value
-
-            coords, error = parse_coordinates(raw_val)
+            raw_text, mode, style = get_input_values()
+            coords_list, error = parse_coordinates_list(raw_text)
+            status_el = document.getElementById("status-msg")
 
             if error:
-                show_status(error, True)
+                status_el.innerText = error
+                status_el.classList.add("text-red-600")
+                if "入力してください" in error:
+                    # Clear map if empty
+                    window.updateMapJS("[]", mode, json.dumps(style))
             else:
-                lat, lon = coords
-                success = window.updateMapJS(lat, lon)
-                if success:
-                    show_status(f"地図を更新しました: {lat}, {lon}", False)
+                if mode == "line" and len(coords_list) < 2:
+                     status_el.innerText = "線を描くには2つ以上の点が必要です"
+                     status_el.classList.add("text-red-600")
+                elif mode == "polygon" and len(coords_list) < 3:
+                     status_el.innerText = "面を描くには3つ以上の点が必要です"
+                     status_el.classList.add("text-red-600")
                 else:
-                    show_status("地図更新エラー: JS側で問題が発生しました", True)
+                    status_el.innerText = "地図を更新しました"
+                    status_el.classList.remove("text-red-600")
+                    status_el.classList.add("text-green-600")
+
+                success = window.updateMapJS(json.dumps(coords_list), mode, json.dumps(style))
 
         def on_download_click(event):
             window.downloadPDFJS()
 
-        def on_input_keypress(event):
+        def on_single_input_keypress(event):
             if event.key == "Enter":
                 on_update_click(event)
 
         # Bind Events
         document.getElementById("btn-update").onclick = on_update_click
         document.getElementById("btn-download").onclick = on_download_click
-        document.getElementById("coord-input").onkeypress = on_input_keypress
+        
+        # Bind Enter key specifically to the single input
+        document.getElementById("coord-input-single").onkeypress = on_single_input_keypress
     </script>
 </body>
 
