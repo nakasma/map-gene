@@ -883,6 +883,30 @@
 
                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
 
+                // Add clickable link over the URL display area if visible
+                if (isUrlVisible) {
+                    const urlDisplay = document.getElementById('url-display');
+                    const link = document.getElementById('url-link');
+
+                    if (urlDisplay && link && link.href) {
+                        // Calculate dimensions in PDF coordinates
+                        // The paper wrapper has 10mm padding, so map content starts at (10, 10)
+                        // The URL display is positioned at top: 12mm, left: 4mm relative to the map content
+                        const x = 10 + 4; // 14mm
+                        const y = 10 + 12; // 22mm
+
+                        // Calculate width and height based on the ratio between paper pixel width and PDF mm width
+                        const paperWidthPx = paper.offsetWidth;
+                        const ratio = pdfW / paperWidthPx;
+
+                        const w = urlDisplay.offsetWidth * ratio;
+                        const h = urlDisplay.offsetHeight * ratio;
+
+                        // Add link annotation
+                        pdf.link(x, y, w, h, { url: link.href });
+                    }
+                }
+
                 // Formatted Timestamp
                 const now = new Date();
                 const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
