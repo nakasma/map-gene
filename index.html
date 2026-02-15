@@ -689,14 +689,14 @@
                 // Clear previous QR code
                 qrCodeContainer.innerHTML = '';
 
-                // Generate new QR code (small size: 48x48)
+                // Generate new QR code (improved size and error correction)
                 qrCodeInstance = new QRCode(qrCodeContainer, {
                     text: googleMapsUrl,
-                    width: 48,
-                    height: 48,
+                    width: 64,
+                    height: 64,
                     colorDark: "#000000",
                     colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.L
+                    correctLevel: QRCode.CorrectLevel.H
                 });
 
                 qrDisplay.classList.add('visible');
