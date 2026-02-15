@@ -26,6 +26,9 @@
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
+    <!-- QRCode.js for QR Code Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <!-- Custom Styles -->
     <style>
         :root {
@@ -330,6 +333,52 @@
         .notes-display.visible {
             display: block;
         }
+
+        /* URL Display */
+        .url-display {
+            position: absolute;
+            top: 12mm;
+            left: 12mm;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 2mm;
+            font-size: 8px;
+            line-height: 1.3;
+            max-width: 60mm;
+            word-wrap: break-word;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 450;
+            display: none;
+        }
+
+        .url-display.visible {
+            display: block;
+        }
+
+        .url-display a {
+            color: #1a237e;
+            text-decoration: underline;
+            word-break: break-all;
+        }
+
+        /* QR Code Display */
+        .qr-display {
+            position: absolute;
+            top: 12mm;
+            left: 12mm;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 2mm;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 450;
+            display: none;
+        }
+
+        .qr-display.visible {
+            display: block;
+        }
     </style>
 </head>
 
@@ -385,10 +434,32 @@
             </div>
 
             <!-- Hide Center Toggle -->
-            <div class="flex items-center justify-between mb-8 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
+            <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
                 <span class="text-sm font-bold text-gray-700">中心を非表示</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="toggle-hide-center" class="sr-only peer">
+                    <div
+                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
+                    </div>
+                </label>
+            </div>
+
+            <!-- Show URL Toggle -->
+            <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
+                <span class="text-sm font-bold text-gray-700">URL表示（左上）</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-show-url" class="sr-only peer">
+                    <div
+                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
+                    </div>
+                </label>
+            </div>
+
+            <!-- Show QR Code Toggle -->
+            <div class="flex items-center justify-between mb-8 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
+                <span class="text-sm font-bold text-gray-700">QRコード表示（左上）</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-show-qr" class="sr-only peer">
                     <div
                         class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
                     </div>
@@ -462,6 +533,16 @@
                             </svg>
                         </div>
 
+                        <!-- URL Display -->
+                        <div id="url-display" class="url-display">
+                            <a id="url-link" href="" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+
+                        <!-- QR Code Display -->
+                        <div id="qr-display" class="qr-display">
+                            <div id="qr-code"></div>
+                        </div>
+
                         <!-- Notes Display -->
                         <div id="notes-display" class="notes-display"></div>
                     </div>
@@ -490,6 +571,8 @@
         let isTilesLoading = false;
         let isMarkerFixed = true; // Toggle state set to true by default
         let isCenterHidden = false; // Toggle state for center dot
+        let isUrlVisible = false; // Toggle state for URL display
+        let isQrVisible = false; // Toggle state for QR code display
 
         // --- Map Initialization ---
         function initMap() {
@@ -530,6 +613,10 @@
 
                     // Update Link
                     updateGoogleMapsLink(center.lat, center.lng);
+
+                    // Update URL and QR code if visible
+                    updateUrlDisplay();
+                    updateQrDisplay();
                 }
             });
 
@@ -563,6 +650,61 @@
             document.getElementById('notes-input').addEventListener('input', function (e) {
                 updateNotesDisplay(e.target.value);
             });
+
+            // Toggle URL Display Listener
+            document.getElementById('toggle-show-url').addEventListener('change', function (e) {
+                isUrlVisible = e.target.checked;
+                updateUrlDisplay();
+            });
+
+            // Toggle QR Code Display Listener
+            document.getElementById('toggle-show-qr').addEventListener('change', function (e) {
+                isQrVisible = e.target.checked;
+                updateQrDisplay();
+            });
+        }
+
+        // --- Update URL Display ---
+        function updateUrlDisplay() {
+            const urlDisplay = document.getElementById('url-display');
+            const urlLink = document.getElementById('url-link');
+
+            if (isUrlVisible) {
+                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
+                urlLink.href = googleMapsUrl;
+                urlLink.textContent = googleMapsUrl;
+                urlDisplay.classList.add('visible');
+            } else {
+                urlDisplay.classList.remove('visible');
+            }
+        }
+
+        // --- Update QR Code Display ---
+        let qrCodeInstance = null;
+        function updateQrDisplay() {
+            const qrDisplay = document.getElementById('qr-display');
+            const qrCodeContainer = document.getElementById('qr-code');
+
+            if (isQrVisible) {
+                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
+
+                // Clear previous QR code
+                qrCodeContainer.innerHTML = '';
+
+                // Generate new QR code (small size: 48x48)
+                qrCodeInstance = new QRCode(qrCodeContainer, {
+                    text: googleMapsUrl,
+                    width: 48,
+                    height: 48,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+
+                qrDisplay.classList.add('visible');
+            } else {
+                qrDisplay.classList.remove('visible');
+            }
         }
 
         // --- Update Notes Display ---
@@ -658,6 +800,10 @@
                 map.setView([lat, lng], 16);
                 addMarker(lat, lng);
                 updateGoogleMapsLink(lat, lng);
+
+                // Update URL and QR code if visible
+                updateUrlDisplay();
+                updateQrDisplay();
 
                 // If fixed mode is on, we just updated the map center, so marker stays in center naturally
                 return true;
