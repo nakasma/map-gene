@@ -434,11 +434,11 @@
                 </label>
             </div>
 
-            <!-- Hide Center Toggle -->
+            <!-- Show Center Dot Toggle -->
             <div class="flex items-center justify-between mb-3 p-3 bg-gray-50 rounded border border-gray-200 shadow-sm">
-                <span class="text-sm font-bold text-gray-700">中心を非表示</span>
+                <span class="text-sm font-bold text-gray-700">中心の赤点を表示</span>
                 <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggle-hide-center" class="sr-only peer">
+                    <input type="checkbox" id="toggle-show-center" class="sr-only peer" checked>
                     <div
                         class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1a237e]">
                     </div>
@@ -571,7 +571,7 @@
         let tileLayer;
         let isTilesLoading = false;
         let isMarkerFixed = true; // Toggle state set to true by default
-        let isCenterHidden = false; // Toggle state for center dot
+        let isCenterVisible = true; // Toggle state for center dot (Default: Visible)
         let isUrlVisible = false; // Toggle state for URL display
         let isQrVisible = false; // Toggle state for QR code display
 
@@ -641,8 +641,8 @@
             });
 
             // Toggle Center Dot Listener
-            document.getElementById('toggle-hide-center').addEventListener('change', function (e) {
-                isCenterHidden = e.target.checked;
+            document.getElementById('toggle-show-center').addEventListener('change', function (e) {
+                isCenterVisible = e.target.checked;
                 // Re-draw marker at current position
                 addMarker(currentCoords.lat, currentCoords.lng);
             });
@@ -765,7 +765,7 @@
             layers.push(bigCircle);
 
             // Center Dot (Conditional)
-            if (!isCenterHidden) {
+            if (isCenterVisible) {
                 const smallDot = L.circleMarker([lat, lng], {
                     color: 'white',
                     fillColor: 'red',
