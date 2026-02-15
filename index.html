@@ -337,8 +337,8 @@
         /* URL Display */
         .url-display {
             position: absolute;
-            top: 12mm;
-            left: 4mm;
+            top: 2mm;
+            left: 2mm;
             background-color: rgba(255, 255, 255, 0.95);
             padding: 2mm;
             font-size: 8px;
@@ -363,8 +363,8 @@
         /* QR Code Display */
         .qr-display {
             position: absolute;
-            top: 20mm;
-            left: 4mm;
+            top: 10mm;
+            left: 2mm;
             background-color: rgba(255, 255, 255, 0.95);
             padding: 2mm;
             border: 1px solid #ddd;
@@ -890,10 +890,8 @@
 
                     if (urlDisplay && link && link.href) {
                         // Calculate dimensions in PDF coordinates
-                        // The paper wrapper has 10mm padding, so map content starts at (10, 10)
-                        // The URL display is positioned at top: 12mm, left: 4mm relative to the map content
-                        const x = 10 + 4; // 14mm
-                        const y = 10 + 12; // 22mm
+                        // The paper wrapper has 10mm padding.
+                        // The URL display is positioned at top: 2mm, left: 2mm relative to the map content
 
                         // Calculate width and height based on the ratio between paper pixel width and PDF mm width
                         const paperWidthPx = paper.offsetWidth;
@@ -901,6 +899,12 @@
 
                         const w = urlDisplay.offsetWidth * ratio;
                         const h = urlDisplay.offsetHeight * ratio;
+
+                        // X position: Padding Left (10) + Left Position (2)
+                        const x = 10 + 2; // 12mm
+
+                        // Y position: Padding Top (10) + Top Position (2)
+                        const y = 10 + 2; // 12mm
 
                         // Add link annotation
                         pdf.link(x, y, w, h, { url: link.href });
