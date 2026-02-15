@@ -70,12 +70,21 @@
         select,
         input[type="text"],
         input[type="color"],
-        input[type="number"] {
+        input[type="number"],
+        input[type="range"] {
             width: 100%;
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
             font-size: 14px;
+        }
+
+        /* Range Slider specific */
+        input[type="range"] {
+            padding: 0;
+            border: none;
+            height: 1.5rem;
+            cursor: pointer;
         }
 
         textarea {
@@ -398,7 +407,23 @@
                     <textarea id="coord-input-multi" rows="5"
                         placeholder="35.012, 135.767&#13;&#10;35.013, 135.768"></textarea>
                 </div>
+
+                <!-- Google Maps Link -->
+                <div class="mt-2">
+                    <div class="text-[10px] text-gray-500">
+                        *Googleマップから座標をコピーできます。
+                    </div>
+                    <a id="external-map-link" href="https://www.google.com/maps?q=35.012028,135.767667" target="_blank"
+                        class="flex items-center gap-1 text-[10px] text-blue-600 hover:underline mt-1">
+                        <span class="material-icons text-[12px]">open_in_new</span>
+                        Googleマップで場所を確認
+                    </a>
+                </div>
             </div>
+
+            <button id="btn-update" class="btn mb-4">
+                <span class="material-icons">refresh</span> 地図を更新
+            </button>
 
             <!-- Visual Settings (Lines/Colors) -->
             <div class="border-t border-b border-gray-200 py-3 my-3">
@@ -412,11 +437,16 @@
                         <input type="number" id="stroke-weight" value="3" min="1" max="20">
                     </div>
                 </div>
+                <!-- Point Radius Slider -->
+                <div id="point-radius-group" class="input-group mb-0">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="mb-0">円の大きさ (半径)</label>
+                        <span id="radius-display"
+                            class="text-xs font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">40px</span>
+                    </div>
+                    <input type="range" id="point-radius" value="40" min="40" max="300" step="1" class="w-full">
+                </div>
             </div>
-
-            <button id="btn-update" class="btn mb-4">
-                <span class="material-icons">refresh</span> 地図を更新
-            </button>
 
             <!-- Toggles -->
             <div class="space-y-2 mb-4">
@@ -426,6 +456,21 @@
                     <span>中心に固定</span>
                     <input type="checkbox" id="toggle-fixed-marker" checked>
                 </div>
+
+                <!-- Vertex Circle Toggle (All Modes) -->
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                    <span>円(環)を表示</span>
+                    <input type="checkbox" id="toggle-show-vertex-circle" checked>
+                </div>
+
+                <!-- Center Marker Visibility Toggle (Point Mode Only) -->
+                <div id="center-marker-group">
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                        <span>中心の赤点を表示</span>
+                        <input type="checkbox" id="toggle-show-center-marker" checked>
+                    </div>
+                </div>
+
                 <!-- URL Toggle -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>URL表示</span>
@@ -527,7 +572,7 @@
 
             // Initial Draw (Point Mode)
             updateMapJS([{ lat: currentCenter.lat, lng: currentCenter.lng }], 'point', {
-                color: '#ff0000', weight: 3, fillColor: '#ff0000', fillOpacity: 0.2
+                color: '#ff0000', weight: 3, fillColor: '#ff0000', fillOpacity: 0.2, radius: 40
             });
 
             // --- Event Handlers ---
@@ -612,7 +657,8 @@
                 color: color,
                 weight: parseInt(document.getElementById('stroke-weight').value, 10),
                 fillColor: color, // Use stroke color
-                fillOpacity: 0.2  // Fixed 20%
+                fillOpacity: 0.2,  // Fixed 20%
+                radius: parseInt(document.getElementById('point-radius').value, 10)
             };
         }
 
@@ -643,6 +689,47 @@
             }
         }
 
+        // Live Style Update Function
+        function updateLiveStyles() {
+            const style = getStyleSettings();
+            // Update display label
+            document.getElementById('radius-display').textContent = style.radius + "px";
+
+            drawnLayerGroup.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) {
+                    // Check if it's the center marker (white dot)
+                    if (layer.options.color === 'white' && layer.options.radius === 4) return;
+
+                    // Check if it's a Line/Poly vertex marker (radius 3)
+                    if (layer.options.radius === 3 && layer.options.fillOpacity === 1 && layer.options.stroke === false) {
+                        layer.setStyle({
+                            color: style.color,
+                            fillColor: style.color
+                        });
+                        return;
+                    }
+
+                    // Main Point (Outer Circle)
+                    // If radius is large, it's the "outer circle"
+                    if (layer.options.radius >= 5) {
+                        layer.setStyle({
+                            color: style.color,
+                            weight: style.weight,
+                            fillColor: style.fillColor
+                        });
+                        layer.setRadius(style.radius);
+                    }
+                }
+                else if (layer instanceof L.Polyline || layer instanceof L.Polygon) {
+                    layer.setStyle({
+                        color: style.color,
+                        weight: style.weight,
+                        fillColor: style.fillColor // For Polygon
+                    });
+                }
+            });
+        }
+
         window.updateMapJS = function (coordsList, mode, style) {
             if (typeof coordsList === 'string') coordsList = JSON.parse(coordsList);
             if (typeof style === 'string') style = JSON.parse(style);
@@ -652,46 +739,106 @@
 
             updateCursorStyle();
 
+            // Check marker visibility toggle
+            const showCenterMarkers = document.getElementById('toggle-show-center-marker').checked;
+            const showVertexCircles = document.getElementById('toggle-show-vertex-circle').checked;
+
             if (!coordsList || coordsList.length === 0) return false;
 
-            if (mode === 'point') {
-                coordsList.forEach(c => {
-                    L.circleMarker([c.lat, c.lng], {
-                        color: style.color, weight: style.weight,
-                        fillColor: style.fillColor, fillOpacity: style.fillOpacity, radius: 20
-                    }).addTo(drawnLayerGroup);
-                    L.circleMarker([c.lat, c.lng], {
-                        color: 'white', fillColor: style.color, fillOpacity: 1, weight: 1, radius: 4
-                    }).addTo(drawnLayerGroup);
-                });
+            // DRAWING LOGIC
 
-                if (coordsList.length === 1) {
-                    const c = coordsList[0];
-                    const center = map.getCenter();
-                    const dist = Math.abs(c.lat - center.lat) + Math.abs(c.lng - center.lng);
-                    const fixed = document.getElementById('toggle-fixed-marker').checked;
-                    if (dist > 0.00001 && fixed) {
-                        map.setView([c.lat, c.lng], map.getZoom(), { animate: false });
-                    }
-                }
-
-            } else if (mode === 'line') {
+            // 1. Draw Geometry (Line/Polygon)
+            if (mode === 'line') {
                 const latlngs = coordsList.map(c => [c.lat, c.lng]);
                 L.polyline(latlngs, { color: style.color, weight: style.weight }).addTo(drawnLayerGroup);
-                coordsList.forEach(c => {
-                    L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
-                });
             } else if (mode === 'polygon') {
                 const latlngs = coordsList.map(c => [c.lat, c.lng]);
                 L.polygon(latlngs, {
                     color: style.color, weight: style.weight,
                     fillColor: style.fillColor, fillOpacity: style.fillOpacity
                 }).addTo(drawnLayerGroup);
+            }
+
+            // 2. Draw Circles and Markers
+            if (mode === 'point') {
+                coordsList.forEach(c => {
+                    // Outer Circle (If enabled)
+                    if (showVertexCircles) {
+                        L.circleMarker([c.lat, c.lng], {
+                            color: style.color, weight: style.weight,
+                            fillColor: style.fillColor, fillOpacity: style.fillOpacity,
+                            radius: style.radius || 20
+                        }).addTo(drawnLayerGroup);
+                    }
+
+                    // Center Dot (Point Mode Only)
+                    if (showCenterMarkers) {
+                        L.circleMarker([c.lat, c.lng], {
+                            color: 'white', fillColor: style.color, fillOpacity: 1, weight: 1, radius: 4
+                        }).addTo(drawnLayerGroup);
+                    }
+                });
+            } else {
+                // Line/Poly Mode
+
+                // Draw small dots for vertices to indicate path
                 coordsList.forEach(c => {
                     L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
                 });
+
+                // Calculate Center and Max Distance for Auto Radius
+                if (coordsList.length > 0) {
+                    const lats = coordsList.map(c => c.lat);
+                    const lngs = coordsList.map(c => c.lng);
+                    const minLat = Math.min(...lats);
+                    const maxLat = Math.max(...lats);
+                    const minLng = Math.min(...lngs);
+                    const maxLng = Math.max(...lngs);
+
+                    const centerLat = (minLat + maxLat) / 2;
+                    const centerLng = (minLng + maxLng) / 2;
+                    const centerLatLng = L.latLng(centerLat, centerLng);
+
+                    // AUTO-CALCULATE RADIUS
+                    // Get center point in pixels
+                    const centerPoint = map.latLngToLayerPoint(centerLatLng);
+                    let maxDist = 0;
+                    coordsList.forEach(c => {
+                        const pt = map.latLngToLayerPoint([c.lat, c.lng]);
+                        const dist = centerPoint.distanceTo(pt);
+                        if (dist > maxDist) maxDist = dist;
+                    });
+
+                    // Add padding and update input
+                    const newRadius = Math.ceil(maxDist + 20); // +20px padding
+
+                    // Update the input field
+                    const radiusInput = document.getElementById('point-radius');
+                    const radiusDisplay = document.getElementById('radius-display');
+
+                    // Adjust slider max if the calculated radius is too large
+                    if (newRadius > parseInt(radiusInput.max)) {
+                        radiusInput.max = newRadius + 100;
+                    }
+
+                    radiusInput.value = newRadius;
+                    radiusDisplay.textContent = newRadius + "px";
+
+                    // Use new radius
+                    const drawRadius = newRadius;
+
+                    // Draw ONE large circle at the center
+                    if (showVertexCircles) {
+                        L.circleMarker([centerLat, centerLng], {
+                            color: style.color, weight: style.weight,
+                            fillColor: style.fillColor, fillOpacity: style.fillOpacity,
+                            radius: drawRadius
+                        }).addTo(drawnLayerGroup);
+                    }
+                }
             }
 
+            // View Adjustment Logic
             if (mode !== 'point' && coordsList.length > 1) {
                 // map.fitBounds(L.latLngBounds(coordsList.map(c => [c.lat, c.lng])), { padding: [50, 50] });
             } else if (mode !== 'point' && coordsList.length === 1) {
@@ -700,6 +847,13 @@
 
             if (mode === 'point' && !document.getElementById('toggle-fixed-marker').checked && coordsList.length === 1) {
                 map.setView([coordsList[0].lat, coordsList[0].lng], map.getZoom());
+            }
+
+            // For Fixed Point mode auto-centering is handled in move/click events mostly, 
+            // but initial load needs it if coordinates exist
+            if (mode === 'point' && document.getElementById('toggle-fixed-marker').checked && coordsList.length === 1) {
+                // Check if far away? or just flyTo. 
+                // Simple logic: if called from Python update, we assume user wants to go there.
             }
 
             if (coordsList.length > 0) {
@@ -731,6 +885,12 @@
                 new QRCode(qrDiv, { text: gUrl, width: 80, height: 80 });
                 qrBox.classList.add('visible');
             } else qrBox.classList.remove('visible');
+
+            // Update Sidebar Google Map Link
+            const extLink = document.getElementById('external-map-link');
+            if (extLink) {
+                extLink.href = `https://www.google.com/maps?q=${lat},${lng}`;
+            }
         }
 
         function setupUIListeners() {
@@ -740,6 +900,8 @@
             const multiContainer = document.getElementById('multi-input-container');
             const toggleFixedContainer = document.getElementById('toggle-fixed-container');
             const interactionModeGroup = document.getElementById('interaction-mode-group');
+            const centerMarkerGroup = document.getElementById('center-marker-group');
+            // const pointRadiusGroup = document.getElementById('point-radius-group'); // Now always visible
 
             drawMode.addEventListener('change', (e) => {
                 const mode = e.target.value;
@@ -747,20 +909,25 @@
                 const multiInput = document.getElementById('coord-input-multi');
 
                 const qrNoteText = document.getElementById('qr-note-text');
+                const toggleVertexCircle = document.getElementById('toggle-show-vertex-circle');
 
                 if (mode === 'point') {
                     singleContainer.classList.remove('hidden');
                     multiContainer.classList.add('hidden');
                     toggleFixedContainer.classList.remove('hidden');
-                    interactionModeGroup.classList.add('hidden'); // Hide interaction mode for point
+                    centerMarkerGroup.classList.remove('hidden');
+                    interactionModeGroup.classList.add('hidden');
                     qrNoteText.textContent = '※URLとQRコードに設定される緯度経度は、赤い円の中心座標';
+                    toggleVertexCircle.checked = true; // Auto check for Point
                 } else {
                     // Line or Polygon
                     singleContainer.classList.add('hidden');
                     multiContainer.classList.remove('hidden');
                     toggleFixedContainer.classList.add('hidden');
-                    interactionModeGroup.classList.remove('hidden'); // Show interaction mode
+                    centerMarkerGroup.classList.add('hidden');
+                    interactionModeGroup.classList.remove('hidden');
                     qrNoteText.textContent = '※URLとQRコードに設定される緯度経度は、座標リストの1行目となる。';
+                    toggleVertexCircle.checked = false; // Auto uncheck for Line/Polygon
                 }
 
                 // Explicitly clear inputs when switching to line/poly
@@ -838,13 +1005,25 @@
             // Toggles
             ['toggle-show-url', 'toggle-show-qr'].forEach(id => {
                 document.getElementById(id).addEventListener('change', () => {
-                    // Update using current overlay coords, NOT map center (unless fixed)
+                    // Update using current overlay coords
                     updateOverlays(currentOverlayCoords.lat, currentOverlayCoords.lng);
                 });
             });
 
             // Fixed Toggle Change (update cursor)
             document.getElementById('toggle-fixed-marker').addEventListener('change', updateCursorStyle);
+
+            // Marker Visibility Toggles
+            ['toggle-show-center-marker', 'toggle-show-vertex-circle'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    document.getElementById('btn-update').click();
+                });
+            });
+
+            // Live Style Updates
+            ['stroke-color', 'stroke-weight', 'point-radius'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateLiveStyles);
+            });
 
             // Orientation
             const setOrient = (land) => {
@@ -917,11 +1096,14 @@
                 text = document.getElementById("coord-input-multi").value
 
             color_val = document.getElementById("stroke-color").value
+            radius_val = document.getElementById("point-radius").value
+            
             style = {
                 "color": color_val,
                 "weight": document.getElementById("stroke-weight").value,
                 "fillColor": color_val,
-                "fillOpacity": 0.2
+                "fillOpacity": 0.2,
+                "radius": int(radius_val)
             }
             return text, mode, style
 
