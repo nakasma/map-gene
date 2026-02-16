@@ -307,158 +307,6 @@
             margin: 0;
         }
 
-        /* Toggle Switch (iOS Style) */
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 48px;
-            height: 26px;
-            flex-shrink: 0;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: 0.3s;
-            border-radius: 26px;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: 0.3s;
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .toggle-switch input:checked+.toggle-slider {
-            background-color: #4CAF50;
-        }
-
-        .toggle-switch input:focus+.toggle-slider {
-            box-shadow: 0 0 1px #4CAF50, inset 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .toggle-switch input:checked+.toggle-slider:before {
-            transform: translateX(22px);
-        }
-
-        /* Radio Button as Modern Button */
-        .radio-button-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .radio-button-label {
-            flex: 1;
-            position: relative;
-            cursor: pointer;
-        }
-
-        .radio-button-label input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .radio-button-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            padding: 8px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            background: white;
-            transition: all 0.2s;
-            text-align: center;
-        }
-
-        .radio-button-label input[type="radio"]:checked+.radio-button-content {
-            border-color: #1a237e;
-            background: #e8eaf6;
-            box-shadow: 0 2px 4px rgba(26, 35, 126, 0.2);
-        }
-
-        .radio-button-label:hover .radio-button-content {
-            border-color: #9fa8da;
-            background: #f5f5f5;
-        }
-
-        .radio-button-icon {
-            font-size: 20px;
-            color: #666;
-            transition: color 0.2s;
-        }
-
-        .radio-button-label input[type="radio"]:checked+.radio-button-content .radio-button-icon {
-            color: #1a237e;
-        }
-
-        .radio-button-text {
-            font-size: 11px;
-            font-weight: bold;
-            color: #666;
-            transition: color 0.2s;
-        }
-
-        .radio-button-label input[type="radio"]:checked+.radio-button-content .radio-button-text {
-            color: #1a237e;
-        }
-
-        /* Mode Status Bar */
-        .mode-status-bar {
-            position: absolute;
-            top: 12mm;
-            left: 12mm;
-            z-index: 500;
-            background: rgba(255, 255, 255, 0.95);
-            border: 2px solid #1a237e;
-            border-radius: 8px;
-            padding: 8px 12px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            font-weight: bold;
-            pointer-events: none;
-        }
-
-        .mode-status-icon {
-            font-size: 16px;
-            color: #1a237e;
-        }
-
-        .mode-status-text {
-            color: #1a237e;
-            white-space: nowrap;
-        }
-
-        .mode-status-divider {
-            width: 1px;
-            height: 16px;
-            background: #ccc;
-        }
-
         /* Utility */
         .hidden {
             display: none !important;
@@ -493,31 +341,38 @@
 
             <!-- Interaction Mode (Only for Line/Polygon) -->
             <div id="interaction-mode-group"
-                class="input-group hidden bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border-2 border-indigo-200 mb-4">
-                <label class="mb-2 text-xs font-bold text-indigo-700 flex items-center gap-1">
-                    <span class="material-icons text-sm">touch_app</span> 操作モード
+                class="input-group hidden bg-gray-50 p-2 rounded border border-gray-200 mb-4">
+                <label class="mb-2 text-xs font-bold text-gray-500 flex items-center gap-1">
+                    <span class="material-icons text-xs">touch_app</span> 操作モード
                 </label>
-                <div class="radio-button-group">
+                <div class="flex gap-4">
                     <!-- Add Mode -->
-                    <label class="radio-button-label">
+                    <label class="group relative flex items-center gap-1 cursor-pointer">
                         <input type="radio" name="interaction_mode" value="add" checked>
-                        <div class="radio-button-content">
-                            <span class="material-icons radio-button-icon">add_location_alt</span>
-                            <span class="radio-button-text">座標追加</span>
+                        <span class="text-sm font-bold text-[#1a237e]">座標追加</span>
+                        <!-- Tooltip -->
+                        <div
+                            class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                            地図クリックで点を打ちます
+                            <div
+                                class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800">
+                            </div>
                         </div>
                     </label>
 
                     <!-- Move Mode -->
-                    <label class="radio-button-label">
+                    <label class="group relative flex items-center gap-1 cursor-pointer">
                         <input type="radio" name="interaction_mode" value="move">
-                        <div class="radio-button-content">
-                            <span class="material-icons radio-button-icon">pan_tool</span>
-                            <span class="radio-button-text">地図移動</span>
+                        <span class="text-sm text-gray-600">地図移動</span>
+                        <!-- Tooltip -->
+                        <div
+                            class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                            点を打たずに移動できます
+                            <div
+                                class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800">
+                            </div>
                         </div>
                     </label>
-                </div>
-                <div class="text-[10px] text-gray-600 mt-2 text-center">
-                    <span id="interaction-hint-text">地図をクリックして座標を追加</span>
                 </div>
             </div>
 
@@ -599,47 +454,32 @@
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border"
                     id="toggle-fixed-container">
                     <span>中心に固定</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-fixed-marker" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <input type="checkbox" id="toggle-fixed-marker" checked>
                 </div>
 
                 <!-- Vertex Circle Toggle (All Modes) -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>円(環)を表示</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-show-vertex-circle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <input type="checkbox" id="toggle-show-vertex-circle" checked>
                 </div>
 
                 <!-- Center Marker Visibility Toggle (Point Mode Only) -->
                 <div id="center-marker-group">
                     <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                         <span>中心の赤点を表示</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="toggle-show-center-marker" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
+                        <input type="checkbox" id="toggle-show-center-marker" checked>
                     </div>
                 </div>
 
                 <!-- URL Toggle -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>URL表示</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-show-url">
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <input type="checkbox" id="toggle-show-url">
                 </div>
                 <!-- QR Toggle -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>QRコード表示</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-show-qr">
-                        <span class="toggle-slider"></span>
-                    </label>
+                    <input type="checkbox" id="toggle-show-qr">
                 </div>
                 <div class="text-[10px] text-gray-500 mt-1 px-1" id="qr-note-text">
                     ※URLとQRコードに設定される緯度経度は、赤い円の中心座標
@@ -684,16 +524,6 @@
                                 <circle cx="50" cy="50" r="42" fill="white" stroke="#000" stroke-width="4" />
                                 <path d="M50 15 L28 85 L50 70 L72 85 Z" fill="#000" />
                             </svg>
-                        </div>
-
-                        <!-- Mode Status Bar -->
-                        <div id="mode-status-bar" class="mode-status-bar">
-                            <span class="material-icons mode-status-icon" id="mode-status-icon">place</span>
-                            <span class="mode-status-text" id="mode-status-text">Point モード</span>
-                            <span class="mode-status-divider" id="interaction-divider"></span>
-                            <span class="material-icons mode-status-icon"
-                                id="interaction-status-icon">add_location_alt</span>
-                            <span class="mode-status-text" id="interaction-status-text">座標追加</span>
                         </div>
 
                         <!-- Overlays -->
@@ -819,9 +649,6 @@
             window.addEventListener('resize', fitPaperToScreen);
 
             setupUIListeners();
-
-            // Initialize status bar
-            updateModeStatusBar();
         }
 
         function getStyleSettings() {
@@ -833,49 +660,6 @@
                 fillOpacity: 0.2,  // Fixed 20%
                 radius: parseInt(document.getElementById('point-radius').value, 10)
             };
-        }
-
-        function updateModeStatusBar() {
-            const mode = document.getElementById('draw-mode').value;
-            const modeStatusIcon = document.getElementById('mode-status-icon');
-            const modeStatusText = document.getElementById('mode-status-text');
-            const interactionDivider = document.getElementById('interaction-divider');
-            const interactionStatusIcon = document.getElementById('interaction-status-icon');
-            const interactionStatusText = document.getElementById('interaction-status-text');
-
-            // Update Draw Mode (Point/Line/Polygon)
-            if (mode === 'point') {
-                modeStatusIcon.textContent = 'place';
-                modeStatusText.textContent = 'Point モード';
-            } else if (mode === 'line') {
-                modeStatusIcon.textContent = 'timeline';
-                modeStatusText.textContent = 'Line モード';
-            } else if (mode === 'polygon') {
-                modeStatusIcon.textContent = 'square';
-                modeStatusText.textContent = 'Polygon モード';
-            }
-
-            // Update Interaction Mode (Only for Line/Polygon)
-            if (mode !== 'point') {
-                const interactionMode = document.querySelector('input[name="interaction_mode"]:checked').value;
-
-                interactionDivider.style.display = 'block';
-                interactionStatusIcon.style.display = 'block';
-                interactionStatusText.style.display = 'block';
-
-                if (interactionMode === 'add') {
-                    interactionStatusIcon.textContent = 'add_location_alt';
-                    interactionStatusText.textContent = '座標追加';
-                } else {
-                    interactionStatusIcon.textContent = 'pan_tool';
-                    interactionStatusText.textContent = '地図移動';
-                }
-            } else {
-                // Hide interaction mode for Point mode
-                interactionDivider.style.display = 'none';
-                interactionStatusIcon.style.display = 'none';
-                interactionStatusText.style.display = 'none';
-            }
         }
 
         function updateCursorStyle() {
@@ -903,9 +687,6 @@
                     mapContainer.classList.add('cursor-grab');
                 }
             }
-
-            // Update Status Bar
-            updateModeStatusBar();
         }
 
         // Live Style Update Function
@@ -1161,21 +942,10 @@
                 updateCursorStyle();
             });
 
-            // Interaction Mode Change (Update cursor and hint text)
+            // Interaction Mode Change (Update cursor)
             const interactionRadios = document.querySelectorAll('input[name="interaction_mode"]');
             interactionRadios.forEach(radio => {
-                radio.addEventListener('change', () => {
-                    const hintText = document.getElementById('interaction-hint-text');
-                    const selectedMode = document.querySelector('input[name="interaction_mode"]:checked').value;
-
-                    if (selectedMode === 'add') {
-                        hintText.textContent = '地図をクリックして座標を追加';
-                    } else {
-                        hintText.textContent = '地図を自由に移動できます';
-                    }
-
-                    updateCursorStyle();
-                });
+                radio.addEventListener('change', updateCursorStyle);
             });
 
             // Undo Button Logic
