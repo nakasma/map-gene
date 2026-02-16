@@ -307,6 +307,59 @@
             margin: 0;
         }
 
+        /* Toggle Switch (iOS Style) */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 26px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background-color: #4CAF50;
+        }
+
+        .toggle-switch input:focus+.toggle-slider {
+            box-shadow: 0 0 1px #4CAF50, inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch input:checked+.toggle-slider:before {
+            transform: translateX(22px);
+        }
+
         /* Utility */
         .hidden {
             display: none !important;
@@ -454,32 +507,47 @@
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border"
                     id="toggle-fixed-container">
                     <span>中心に固定</span>
-                    <input type="checkbox" id="toggle-fixed-marker" checked>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-fixed-marker" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
 
                 <!-- Vertex Circle Toggle (All Modes) -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>円(環)を表示</span>
-                    <input type="checkbox" id="toggle-show-vertex-circle" checked>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-show-vertex-circle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
 
                 <!-- Center Marker Visibility Toggle (Point Mode Only) -->
                 <div id="center-marker-group">
                     <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                         <span>中心の赤点を表示</span>
-                        <input type="checkbox" id="toggle-show-center-marker" checked>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-show-center-marker" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
 
                 <!-- URL Toggle -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>URL表示</span>
-                    <input type="checkbox" id="toggle-show-url">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-show-url">
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
                 <!-- QR Toggle -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span>QRコード表示</span>
-                    <input type="checkbox" id="toggle-show-qr">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-show-qr">
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
                 <div class="text-[10px] text-gray-500 mt-1 px-1" id="qr-note-text">
                     ※URLとQRコードに設定される緯度経度は、赤い円の中心座標
