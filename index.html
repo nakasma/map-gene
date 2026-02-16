@@ -730,7 +730,7 @@
             });
         }
 
-        window.updateMapJS = function (coordsList, mode, style) {
+        window.updateMapJS = function (coordsList, mode, style, forceCenter) {
             if (typeof coordsList === 'string') coordsList = JSON.parse(coordsList);
             if (typeof style === 'string') style = JSON.parse(style);
 
@@ -781,10 +781,7 @@
             } else {
                 // Line/Poly Mode
 
-                // Draw small dots for vertices to indicate path
-                coordsList.forEach(c => {
-                    L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
-                });
+                // Draw small dots for vertices to indicate path removed (requested)
 
                 // Calculate Center and Max Distance for Auto Radius
                 if (coordsList.length > 0) {
@@ -842,18 +839,22 @@
             if (mode !== 'point' && coordsList.length > 1) {
                 // map.fitBounds(L.latLngBounds(coordsList.map(c => [c.lat, c.lng])), { padding: [50, 50] });
             } else if (mode !== 'point' && coordsList.length === 1) {
-                map.setView([coordsList[0].lat, coordsList[0].lng], map.getZoom());
+                // map.setView(...) handled externally for updates
             }
 
-            if (mode === 'point' && !document.getElementById('toggle-fixed-marker').checked && coordsList.length === 1) {
-                map.setView([coordsList[0].lat, coordsList[0].lng], map.getZoom());
-            }
+            // For Point mode
+            if (mode === 'point' && coordsList.length === 1) {
+                const c = coordsList[0];
+                const dist = Math.abs(c.lat - map.getCenter().lat) + Math.abs(c.lng - map.getCenter().lng);
+                const fixed = document.getElementById('toggle-fixed-marker').checked;
 
-            // For Fixed Point mode auto-centering is handled in move/click events mostly, 
-            // but initial load needs it if coordinates exist
-            if (mode === 'point' && document.getElementById('toggle-fixed-marker').checked && coordsList.length === 1) {
-                // Check if far away? or just flyTo. 
-                // Simple logic: if called from Python update, we assume user wants to go there.
+                // FORCE CENTER if forceCenter is true (manual update), OR if Fixed mode and far away
+                if (forceCenter || (fixed && dist > 0.00001)) {
+                    map.setView([c.lat, c.lng], map.getZoom(), { animate: false });
+                } else if (!fixed && forceCenter) {
+                    // Manual update in non-fixed mode also centers
+                    map.setView([c.lat, c.lng], map.getZoom(), { animate: false });
+                }
             }
 
             if (coordsList.length > 0) {
@@ -1144,7 +1145,7 @@
                 status_el.classList.add("text-red-600")
                 if "入力してください" in error:
                     # Clear map if empty
-                    window.updateMapJS("[]", mode, json.dumps(style))
+                    window.updateMapJS("[]", mode, json.dumps(style), True)
             else:
                 if mode == "line" and len(coords_list) < 2:
                      status_el.innerText = "線を描くには2つ以上の点が必要です"
@@ -1157,7 +1158,7 @@
                     status_el.classList.remove("text-red-600")
                     status_el.classList.add("text-green-600")
 
-                success = window.updateMapJS(json.dumps(coords_list), mode, json.dumps(style))
+                success = window.updateMapJS(json.dumps(coords_list), mode, json.dumps(style), True)
 
         def on_download_click(event):
             window.downloadPDFJS()
