@@ -453,7 +453,7 @@
                 <!-- Center Fix Toggle -->
                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded border"
                     id="toggle-fixed-container">
-                    <span>中心に固定</span>
+                    <span>マップ移動時に円を中心に固定</span>
                     <input type="checkbox" id="toggle-fixed-marker" checked>
                 </div>
 
@@ -715,7 +715,8 @@
                         layer.setStyle({
                             color: style.color,
                             weight: style.weight,
-                            fillColor: style.fillColor
+                            fill: false, // No fill for the ring
+                            fillOpacity: 0
                         });
                         layer.setRadius(style.radius);
                     }
@@ -724,7 +725,8 @@
                     layer.setStyle({
                         color: style.color,
                         weight: style.weight,
-                        fillColor: style.fillColor // For Polygon
+                        fillColor: style.color, // For Polygon
+                        fillOpacity: 0.2
                     });
                 }
             });
@@ -755,7 +757,7 @@
                 const latlngs = coordsList.map(c => [c.lat, c.lng]);
                 L.polygon(latlngs, {
                     color: style.color, weight: style.weight,
-                    fillColor: style.fillColor, fillOpacity: style.fillOpacity
+                    fillColor: style.color, fillOpacity: 0.2
                 }).addTo(drawnLayerGroup);
             }
 
@@ -766,7 +768,7 @@
                     if (showVertexCircles) {
                         L.circleMarker([c.lat, c.lng], {
                             color: style.color, weight: style.weight,
-                            fillColor: style.fillColor, fillOpacity: style.fillOpacity,
+                            fill: false, fillOpacity: 0, // No fill
                             radius: style.radius || 20
                         }).addTo(drawnLayerGroup);
                     }
@@ -781,7 +783,10 @@
             } else {
                 // Line/Poly Mode
 
-                // Draw small dots for vertices to indicate path removed (requested)
+                // Draw small dots for vertices to indicate path
+                coordsList.forEach(c => {
+                    L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
+                });
 
                 // Calculate Center and Max Distance for Auto Radius
                 if (coordsList.length > 0) {
@@ -828,7 +833,7 @@
                     if (showVertexCircles) {
                         L.circleMarker([centerLat, centerLng], {
                             color: style.color, weight: style.weight,
-                            fillColor: style.fillColor, fillOpacity: style.fillOpacity,
+                            fill: false, fillOpacity: 0, // No fill
                             radius: drawRadius
                         }).addTo(drawnLayerGroup);
                     }
