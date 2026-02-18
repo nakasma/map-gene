@@ -347,6 +347,126 @@
         .hidden {
             display: none !important;
         }
+
+        /* ===== Text Box on Map ===== */
+        .map-textbox {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #999;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 14px;
+            color: #222;
+            cursor: move;
+            white-space: nowrap;
+            min-width: 30px;
+            user-select: none;
+            transition: box-shadow 0.15s, border-color 0.15s;
+        }
+
+        .map-textbox:hover {
+            box-shadow: 0 2px 8px rgba(26, 35, 126, 0.18);
+        }
+
+        .map-textbox.editing {
+            border-color: #1a237e;
+            box-shadow: 0 0 0 2px rgba(26, 35, 126, 0.3);
+            cursor: text;
+        }
+
+        .map-textbox.selected {
+            border-color: #1a237e;
+            box-shadow: 0 0 0 2px rgba(26, 35, 126, 0.2);
+        }
+
+        .map-textbox-input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font: inherit;
+            color: inherit;
+            min-width: 40px;
+            width: auto;
+            padding: 0;
+        }
+
+        .map-textbox-display {
+            display: inline-block;
+            min-height: 1em;
+        }
+
+        /* Style Popup */
+        .textbox-style-popup {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 8px 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            z-index: 1000;
+            white-space: nowrap;
+            pointer-events: auto;
+        }
+
+        .textbox-style-popup label {
+            font-size: 10px;
+            color: #555;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .textbox-style-popup input[type="color"] {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .textbox-style-popup select {
+            font-size: 11px;
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .textbox-style-popup .delete-btn {
+            background: #ef5350;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 6px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .textbox-style-popup .delete-btn:hover {
+            background: #c62828;
+        }
+
+        /* Text Add Mode Button */
+        .btn-add-text.active-text-mode {
+            background: #ff6f00;
+            color: white;
+            border-color: #ff6f00;
+            animation: pulse 2s infinite;
+        }
+
+        /* Text Add Mode Cursor */
+        .cursor-text-add {
+            cursor: text !important;
+        }
     </style>
 </head>
 
@@ -496,6 +616,11 @@
                 <textarea id="notes-input" rows="2" placeholder="備考を入力"></textarea>
             </div>
 
+            <!-- Text Box Add -->
+            <button id="btn-add-text" class="btn btn-add-text mb-2 w-full">
+                <span class="material-icons">text_fields</span> テキスト追加
+            </button>
+
             <!-- Orientation -->
             <div class="input-group">
                 <label>用紙の向き</label>
@@ -563,6 +688,14 @@
         // Current coords for overlays
         let currentOverlayCoords = { lat: 35.012018, lng: 135.767676 };
 
+        // Text Box State
+        let isTextAddMode = false;
+        let textBoxes = [];          // { id, marker, latlng, text, style }
+        let selectedTextBox = null;
+        let editingTextBox = null;
+        let textAddCooldown = false;
+        let textBoxIdCounter = 0;
+
         function initMap() {
             map = L.map('map', {
                 zoomControl: false,
@@ -586,8 +719,20 @@
 
             // --- Event Handlers ---
 
-            // Map Click (Add points)
+            // Map Click (Add points / Text boxes)
             map.on('click', (e) => {
+                // Text Add Mode: create text box
+                if (isTextAddMode) {
+                    createTextBox(e.latlng);
+                    exitTextAddMode();
+                    return;
+                }
+
+                // Deselect text box when clicking on map (not on a textbox)
+                if (selectedTextBox && !editingTextBox) {
+                    deselectTextBox();
+                }
+
                 const mode = document.getElementById('draw-mode').value;
                 const fixed = document.getElementById('toggle-fixed-marker').checked;
 
@@ -679,6 +824,24 @@
 
             // Global Key Events
             document.addEventListener('keydown', (e) => {
+                // Ignore keys when editing a text box input
+                if (e.target.classList.contains('map-textbox-input')) return;
+
+                // Text box selected: Delete/Backspace to remove
+                if (selectedTextBox && !editingTextBox) {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        e.preventDefault();
+                        deleteTextBox(selectedTextBox);
+                        return;
+                    }
+                }
+
+                // ESC to exit text add mode
+                if (isTextAddMode && e.key === 'Escape') {
+                    exitTextAddMode();
+                    return;
+                }
+
                 if (!isDrawingMode) return;
 
                 // Ignore Enter in textarea (coord-input-multi)
@@ -777,10 +940,370 @@
         }
 
         function cancelDrawing() {
-            // Option: Clear last point? Or just exit?
-            // Spec says: "ESC key cancels drawing". 
-            // If points exist, maybe we should confirm? For now, just exit mode.
             finishDrawing();
+        }
+
+        // ===== Text Box Functions =====
+
+        function enterTextAddMode() {
+            if (isDrawingMode) return; // Don't allow text mode during drawing
+            isTextAddMode = true;
+            const btn = document.getElementById('btn-add-text');
+            btn.classList.add('active-text-mode');
+            btn.innerHTML = '<span class="material-icons">close</span> テキスト追加を終了';
+            document.getElementById('map').classList.add('cursor-text-add');
+            document.getElementById('map').classList.remove('cursor-grab');
+        }
+
+        function exitTextAddMode() {
+            isTextAddMode = false;
+            const btn = document.getElementById('btn-add-text');
+            btn.classList.remove('active-text-mode');
+            btn.innerHTML = '<span class="material-icons">text_fields</span> テキスト追加';
+            document.getElementById('map').classList.remove('cursor-text-add');
+            // Restore cursor based on current state
+            if (!isDrawingMode) {
+                document.getElementById('map').classList.add('cursor-grab');
+            }
+        }
+
+        function createTextBox(latlng) {
+            if (textAddCooldown) return;
+            textAddCooldown = true;
+            setTimeout(() => { textAddCooldown = false; }, 300);
+
+            const id = ++textBoxIdCounter;
+            const defaultStyle = {
+                fontSize: '14px',
+                color: '#222222',
+                bgColor: 'rgba(255,255,255,0.92)',
+                borderColor: '#999999'
+            };
+
+            // Create DivIcon with input
+            const container = document.createElement('div');
+            container.className = 'map-textbox editing';
+            container.dataset.tbId = id;
+            container.style.fontSize = defaultStyle.fontSize;
+            container.style.color = defaultStyle.color;
+            container.style.background = defaultStyle.bgColor;
+            container.style.borderColor = defaultStyle.borderColor;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'map-textbox-input';
+            input.placeholder = 'テキストを入力...';
+            input.style.color = defaultStyle.color;
+            container.appendChild(input);
+
+            const icon = L.divIcon({
+                html: container.outerHTML,
+                className: '',
+                iconSize: null,
+                iconAnchor: [0, 0]
+            });
+
+            const marker = L.marker(latlng, {
+                icon: icon,
+                draggable: true,
+                interactive: true,
+                zIndexOffset: 500
+            }).addTo(map);
+
+            const tb = {
+                id: id,
+                marker: marker,
+                latlng: latlng,
+                text: '',
+                style: { ...defaultStyle }
+            };
+            textBoxes.push(tb);
+
+            // Set up events after marker is added
+            setupTextBoxEvents(tb);
+
+            // Focus the input after a short delay
+            setTimeout(() => {
+                const el = marker.getElement();
+                if (el) {
+                    const inp = el.querySelector('.map-textbox-input');
+                    if (inp) {
+                        inp.focus();
+                        editingTextBox = tb;
+                    }
+                }
+            }, 50);
+
+            return tb;
+        }
+
+        function setupTextBoxEvents(tb) {
+            const marker = tb.marker;
+            const el = marker.getElement();
+            if (!el) return;
+
+            // Prevent map click propagation from textbox
+            L.DomEvent.disableClickPropagation(el);
+
+            // Input events
+            const input = el.querySelector('.map-textbox-input');
+            const container = el.querySelector('.map-textbox');
+
+            if (input) {
+                // Auto-resize input
+                input.addEventListener('input', () => {
+                    input.style.width = Math.max(40, input.value.length * 9 + 20) + 'px';
+                });
+
+                // Enter to confirm
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        finishEditingTextBox(tb);
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (input.value.trim() === '') {
+                            deleteTextBox(tb);
+                        } else {
+                            finishEditingTextBox(tb);
+                        }
+                    }
+                });
+
+                // Click outside input to confirm
+                input.addEventListener('blur', () => {
+                    if (editingTextBox === tb) {
+                        setTimeout(() => finishEditingTextBox(tb), 100);
+                    }
+                });
+            }
+
+            // Double click to re-edit
+            el.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                startEditingTextBox(tb);
+            });
+
+            // Single click to select
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (editingTextBox !== tb) {
+                    selectTextBox(tb);
+                }
+            });
+
+            // Drag events
+            marker.on('dragend', () => {
+                tb.latlng = marker.getLatLng();
+            });
+
+            // Disable dragging while editing
+            marker.on('dragstart', () => {
+                if (editingTextBox === tb) {
+                    marker.dragging.disable();
+                }
+            });
+        }
+
+        function startEditingTextBox(tb) {
+            const el = tb.marker.getElement();
+            if (!el) return;
+
+            const container = el.querySelector('.map-textbox');
+            if (!container) return;
+
+            // Remove display span, show input
+            container.innerHTML = '';
+            container.classList.add('editing');
+            container.classList.remove('selected');
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'map-textbox-input';
+            input.value = tb.text;
+            input.style.color = tb.style.color;
+            input.style.width = Math.max(40, tb.text.length * 9 + 20) + 'px';
+            container.appendChild(input);
+
+            // Remove style popup if visible
+            const popup = container.querySelector('.textbox-style-popup');
+            if (popup) popup.remove();
+
+            // Disable dragging during edit
+            tb.marker.dragging.disable();
+
+            editingTextBox = tb;
+
+            // Setup input events for re-edit
+            input.addEventListener('input', () => {
+                input.style.width = Math.max(40, input.value.length * 9 + 20) + 'px';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    finishEditingTextBox(tb);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (input.value.trim() === '') {
+                        deleteTextBox(tb);
+                    } else {
+                        finishEditingTextBox(tb);
+                    }
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                if (editingTextBox === tb) {
+                    setTimeout(() => finishEditingTextBox(tb), 100);
+                }
+            });
+
+            setTimeout(() => input.focus(), 30);
+        }
+
+        function finishEditingTextBox(tb) {
+            if (editingTextBox !== tb) return;
+            editingTextBox = null;
+
+            const el = tb.marker.getElement();
+            if (!el) return;
+
+            const input = el.querySelector('.map-textbox-input');
+            const container = el.querySelector('.map-textbox');
+            if (!input || !container) return;
+
+            const text = input.value.trim();
+
+            // Delete if empty
+            if (text === '') {
+                deleteTextBox(tb);
+                return;
+            }
+
+            tb.text = text;
+
+            // Replace input with display
+            container.innerHTML = '';
+            container.classList.remove('editing');
+
+            const span = document.createElement('span');
+            span.className = 'map-textbox-display';
+            span.textContent = text;
+            container.appendChild(span);
+
+            // Re-enable dragging
+            tb.marker.dragging.enable();
+
+            selectTextBox(tb);
+        }
+
+        function deleteTextBox(tb) {
+            if (editingTextBox === tb) editingTextBox = null;
+            if (selectedTextBox === tb) selectedTextBox = null;
+            map.removeLayer(tb.marker);
+            textBoxes = textBoxes.filter(t => t.id !== tb.id);
+        }
+
+        function selectTextBox(tb) {
+            // Deselect previous
+            deselectTextBox();
+
+            selectedTextBox = tb;
+            const el = tb.marker.getElement();
+            if (!el) return;
+
+            const container = el.querySelector('.map-textbox');
+            if (container) {
+                container.classList.add('selected');
+                showStylePopup(tb, container);
+            }
+        }
+
+        function deselectTextBox() {
+            if (!selectedTextBox) return;
+            const el = selectedTextBox.marker.getElement();
+            if (el) {
+                const container = el.querySelector('.map-textbox');
+                if (container) {
+                    container.classList.remove('selected');
+                    const popup = container.querySelector('.textbox-style-popup');
+                    if (popup) popup.remove();
+                }
+            }
+            selectedTextBox = null;
+        }
+
+        function showStylePopup(tb, container) {
+            // Remove existing popup
+            const existing = container.querySelector('.textbox-style-popup');
+            if (existing) existing.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'textbox-style-popup';
+            popup.innerHTML = `
+                <label>文字色
+                    <input type="color" class="tb-color" value="${tb.style.color}">
+                </label>
+                <label>背景色
+                    <input type="color" class="tb-bg" value="${rgbaToHex(tb.style.bgColor)}">
+                </label>
+                <label>サイズ
+                    <select class="tb-size">
+                        <option value="10px" ${tb.style.fontSize === '10px' ? 'selected' : ''}>小</option>
+                        <option value="14px" ${tb.style.fontSize === '14px' ? 'selected' : ''}>中</option>
+                        <option value="18px" ${tb.style.fontSize === '18px' ? 'selected' : ''}>大</option>
+                        <option value="24px" ${tb.style.fontSize === '24px' ? 'selected' : ''}>特大</option>
+                    </select>
+                </label>
+                <button class="delete-btn" title="削除">
+                    <span class="material-icons" style="font-size:16px">delete</span>
+                </button>
+            `;
+
+            // Prevent click propagation from popup
+            popup.addEventListener('click', (e) => e.stopPropagation());
+            popup.addEventListener('mousedown', (e) => e.stopPropagation());
+
+            // Color change
+            popup.querySelector('.tb-color').addEventListener('input', (e) => {
+                tb.style.color = e.target.value;
+                container.style.color = e.target.value;
+                const display = container.querySelector('.map-textbox-display');
+                if (display) display.style.color = e.target.value;
+            });
+
+            // Background color change
+            popup.querySelector('.tb-bg').addEventListener('input', (e) => {
+                tb.style.bgColor = e.target.value;
+                container.style.background = e.target.value;
+            });
+
+            // Font size change
+            popup.querySelector('.tb-size').addEventListener('change', (e) => {
+                tb.style.fontSize = e.target.value;
+                container.style.fontSize = e.target.value;
+            });
+
+            // Delete button
+            popup.querySelector('.delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteTextBox(tb);
+            });
+
+            container.appendChild(popup);
+        }
+
+        // Helper: convert rgba/hex to hex for color input
+        function rgbaToHex(rgba) {
+            if (rgba.startsWith('#')) return rgba.length === 7 ? rgba : '#ffffff';
+            const match = rgba.match(/\d+/g);
+            if (!match || match.length < 3) return '#ffffff';
+            return '#' + match.slice(0, 3).map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
         }
 
         // Live Style Update Function
@@ -1145,6 +1668,17 @@
                     // To support "Force Center on Manual Update", we need Python to know.
                     // Alternative: We temporarily set a flag.
                     window._forceCenterNextUpdate = true;
+                }
+            });
+
+            // Text Add Button
+            document.getElementById('btn-add-text').addEventListener('click', () => {
+                if (isTextAddMode) {
+                    exitTextAddMode();
+                } else {
+                    // Exit drawing mode if active
+                    if (isDrawingMode) finishDrawing();
+                    enterTextAddMode();
                 }
             });
         }
