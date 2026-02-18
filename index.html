@@ -138,6 +138,29 @@
             border-color: var(--color-primary);
         }
 
+        /* Active State for Drawing Button */
+        .btn.active-mode {
+            background-color: #f50057;
+            /* Pink/Red accent */
+            color: white;
+            border-color: #f50057;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(245, 0, 87, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(245, 0, 87, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(245, 0, 87, 0);
+            }
+        }
+
         .btn-icon-only {
             padding: 4px;
             width: 28px;
@@ -256,6 +279,19 @@
             white-space: pre-wrap;
         }
 
+        /* Custom Markers for Editing */
+        .edit-handle-icon {
+            background: white;
+            border: 2px solid var(--color-primary);
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .edit-handle-icon:hover {
+            background: var(--color-primary);
+            border-color: white;
+        }
+
         /* Loading */
         #loading-overlay {
             position: fixed;
@@ -339,43 +375,6 @@
                 </select>
             </div>
 
-            <!-- Interaction Mode (Only for Line/Polygon) -->
-            <div id="interaction-mode-group"
-                class="input-group hidden bg-gray-50 p-2 rounded border border-gray-200 mb-4">
-                <label class="mb-2 text-xs font-bold text-gray-500 flex items-center gap-1">
-                    <span class="material-icons text-xs">touch_app</span> 操作モード
-                </label>
-                <div class="flex gap-4">
-                    <!-- Add Mode -->
-                    <label class="group relative flex items-center gap-1 cursor-pointer">
-                        <input type="radio" name="interaction_mode" value="add" checked>
-                        <span class="text-sm font-bold text-[#1a237e]">座標追加</span>
-                        <!-- Tooltip -->
-                        <div
-                            class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                            地図クリックで点を打ちます
-                            <div
-                                class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800">
-                            </div>
-                        </div>
-                    </label>
-
-                    <!-- Move Mode -->
-                    <label class="group relative flex items-center gap-1 cursor-pointer">
-                        <input type="radio" name="interaction_mode" value="move">
-                        <span class="text-sm text-gray-600">地図移動</span>
-                        <!-- Tooltip -->
-                        <div
-                            class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                            点を打たずに移動できます
-                            <div
-                                class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800">
-                            </div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-
             <!-- Coordinates Inputs -->
             <div class="input-group relative">
                 <!-- Single Line Input (For Point Mode) -->
@@ -388,6 +387,11 @@
 
                 <!-- Multi Line Input (For Line/Polygon Mode) -->
                 <div id="multi-input-container" class="hidden">
+                    <!-- Start Drawing Button (Trigger) -->
+                    <button id="btn-start-draw" class="btn mb-2">
+                        <span class="material-icons">add_location_alt</span> 座標を追加
+                    </button>
+
                     <div class="flex justify-between items-center mb-1">
                         <label class="mb-0">座標リスト</label>
                         <div class="flex gap-1">
@@ -403,7 +407,7 @@
                             </button>
                         </div>
                     </div>
-                    <div class="text-xs text-gray-500 mb-1">※地図クリックで座標を追加</div>
+                    <div class="text-xs text-gray-500 mb-1">※地図クリックで座標追加 ／ ダブルクリック・Enter・マップ外クリックで確定</div>
                     <textarea id="coord-input-multi" rows="5"
                         placeholder="35.012, 135.767&#13;&#10;35.013, 135.768"></textarea>
                 </div>
@@ -550,8 +554,10 @@
     <script>
         let map;
         let drawnLayerGroup;
+        let guideLayerGroup;
         let isLandscape = false;
         let currentMode = 'point';
+        let isDrawingMode = false;
         let currentCenter = { lat: 35.012018, lng: 135.767676 };
         // Current coords for overlays
         let currentOverlayCoords = { lat: 35.012018, lng: 135.767676 };
@@ -560,7 +566,8 @@
             map = L.map('map', {
                 zoomControl: false,
                 attributionControl: true,
-                preferCanvas: true
+                preferCanvas: true,
+                doubleClickZoom: false // Disable default double click zoom
             }).setView([currentCenter.lat, currentCenter.lng], 16);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -569,6 +576,7 @@
             }).addTo(map);
 
             drawnLayerGroup = L.layerGroup().addTo(map);
+            guideLayerGroup = L.layerGroup().addTo(map);
 
             // Initial Draw (Point Mode)
             updateMapJS([{ lat: currentCenter.lat, lng: currentCenter.lng }], 'point', {
@@ -585,33 +593,57 @@
                 if (mode === 'point') {
                     // In Point mode: Move marker to click location
                     if (!fixed) {
-                        // If not fixed to center, clicking moves the single marker
                         const ta = document.getElementById('coord-input-single');
                         ta.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
-                        document.getElementById('btn-update').click();
+                        // Force update and center
+                        updateMapJS([{ lat: e.latlng.lat, lng: e.latlng.lng }], 'point', getStyleSettings(), true);
+                        updateOverlays(e.latlng.lat, e.latlng.lng);
                     } else {
                         // If fixed to center, pan map so center is at click
                         map.panTo(e.latlng);
                     }
                 } else {
                     // Line/Polygon Mode
-
-                    // CHECK INTERACTION MODE
-                    const interactionMode = document.querySelector('input[name="interaction_mode"]:checked').value;
-                    if (interactionMode === 'move') {
-                        return; // Do nothing (allow map drag/zoom only)
-                    }
-
-                    // Append to textarea
-                    const ta = document.getElementById('coord-input-multi');
-                    const newCoord = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
-                    if (ta.value.trim() === '') {
-                        ta.value = newCoord;
+                    if (isDrawingMode) {
+                        // Add Point
+                        addCoordinate(e.latlng);
                     } else {
-                        ta.value = ta.value.trim() + '\n' + newCoord;
+                        // Not drawing, maybe do nothing or clear selection?
+                        // For now, check if user clicked outside map (technically this is map click, so inside)
                     }
-                    // Auto-update preview
-                    document.getElementById('btn-update').click();
+                }
+            });
+
+            // Double Click to Finish
+            map.on('dblclick', (e) => {
+                if (isDrawingMode) {
+                    addCoordinate(e.latlng);
+                    finishDrawing();
+                }
+            });
+
+            // Mouse Move for Guide Line
+            map.on('mousemove', (e) => {
+                if (isDrawingMode) {
+                    const ta = document.getElementById('coord-input-multi');
+                    const lines = ta.value.trim().split('\n');
+                    const lastLine = lines[lines.length - 1];
+
+                    if (lastLine) {
+                        const parts = lastLine.split(',');
+                        if (parts.length >= 2) {
+                            const lastLat = parseFloat(parts[0]);
+                            const lastLng = parseFloat(parts[1]);
+
+                            guideLayerGroup.clearLayers();
+                            L.polyline([[lastLat, lastLng], e.latlng], {
+                                color: '#1a237e',
+                                weight: 2,
+                                dashArray: '5, 10',
+                                opacity: 0.6
+                            }).addTo(guideLayerGroup);
+                        }
+                    }
                 }
             });
 
@@ -626,7 +658,6 @@
                     ta.value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
 
                     // Live update marker
-                    // Also update overlay coords
                     currentOverlayCoords = { lat: center.lat, lng: center.lng };
                     updateMapJS([{ lat: center.lat, lng: center.lng }], 'point', getStyleSettings());
                     updateOverlays(center.lat, center.lng);
@@ -642,6 +673,24 @@
                     const center = map.getCenter();
                     currentOverlayCoords = { lat: center.lat, lng: center.lng };
                     updateOverlays(center.lat, center.lng);
+                }
+            });
+
+            // Global Key Events
+            document.addEventListener('keydown', (e) => {
+                if (!isDrawingMode) return;
+
+                if (e.key === 'Enter') {
+                    finishDrawing();
+                } else if (e.key === 'Escape') {
+                    cancelDrawing();
+                }
+            });
+
+            // Click outside map to finish (Simple implementation on document body)
+            document.body.addEventListener('click', (e) => {
+                if (isDrawingMode && !e.target.closest('#map') && !e.target.closest('#btn-start-draw')) {
+                    finishDrawing();
                 }
             });
 
@@ -662,31 +711,64 @@
             };
         }
 
-        function updateCursorStyle() {
+        function toggleDrawingMode() {
+            isDrawingMode = !isDrawingMode;
+            const btn = document.getElementById('btn-start-draw');
             const mapContainer = document.getElementById('map');
-            const mode = document.getElementById('draw-mode').value;
-            const fixed = document.getElementById('toggle-fixed-marker').checked;
 
-            // Reset
-            mapContainer.classList.remove('cursor-crosshair');
-            mapContainer.classList.remove('cursor-grab');
-
-            if (mode === 'point') {
-                if (!fixed) {
-                    mapContainer.classList.add('cursor-crosshair');
-                } else {
-                    // Default hand (grab) is fine for panning, but explicit is ok too
-                    mapContainer.classList.add('cursor-grab');
-                }
+            if (isDrawingMode) {
+                btn.classList.add('active-mode');
+                btn.innerHTML = '<span class="material-icons">stop</span> 描画を終了';
+                mapContainer.classList.add('cursor-crosshair');
+                mapContainer.classList.remove('cursor-grab');
             } else {
-                // Line/Poly
-                const interactionMode = document.querySelector('input[name="interaction_mode"]:checked').value;
-                if (interactionMode === 'add') {
-                    mapContainer.classList.add('cursor-crosshair');
-                } else {
-                    mapContainer.classList.add('cursor-grab');
-                }
+                finishDrawing();
             }
+        }
+
+        function addCoordinate(latlng) {
+            const ta = document.getElementById('coord-input-multi');
+            const newCoord = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+
+            if (ta.value.trim() === '') {
+                ta.value = newCoord;
+            } else {
+                ta.value = ta.value.trim() + '\n' + newCoord;
+            }
+            // Auto update map
+            document.getElementById('btn-update').click();
+        }
+
+        function finishDrawing() {
+            if (!isDrawingMode) return;
+
+            isDrawingMode = false;
+            guideLayerGroup.clearLayers();
+
+            const btn = document.getElementById('btn-start-draw');
+            btn.classList.remove('active-mode');
+            btn.innerHTML = '<span class="material-icons">add_location_alt</span> 座標を追加';
+
+            const mapContainer = document.getElementById('map');
+            mapContainer.classList.remove('cursor-crosshair');
+            mapContainer.classList.add('cursor-grab');
+
+            // Show feedback message
+            const statusEl = document.getElementById('status-msg');
+            const ta = document.getElementById('coord-input-multi');
+            const pointCount = ta.value.trim().split('\n').filter(l => l.trim()).length;
+            if (pointCount > 0) {
+                statusEl.textContent = `描画を確定しました（${pointCount}点）。再度追加するには「座標を追加」ボタンを押してください。`;
+                statusEl.classList.remove('text-red-600');
+                statusEl.classList.add('text-green-600');
+            }
+        }
+
+        function cancelDrawing() {
+            // Option: Clear last point? Or just exit?
+            // Spec says: "ESC key cancels drawing". 
+            // If points exist, maybe we should confirm? For now, just exit mode.
+            finishDrawing();
         }
 
         // Live Style Update Function
@@ -700,22 +782,18 @@
                     // Check if it's the center marker (white dot)
                     if (layer.options.color === 'white' && layer.options.radius === 4) return;
 
-                    // Check if it's a Line/Poly vertex marker (radius 3)
-                    if (layer.options.radius === 3 && layer.options.fillOpacity === 1 && layer.options.stroke === false) {
-                        layer.setStyle({
-                            color: style.color,
-                            fillColor: style.color
-                        });
+                    // Edit Handles (radius 5, white fill)
+                    if (layer.options.className === 'edit-handle') {
+                        // Keep distinct style
                         return;
                     }
 
                     // Main Point (Outer Circle)
-                    // If radius is large, it's the "outer circle"
-                    if (layer.options.radius >= 5) {
+                    if (layer.options.radius >= 20) { // Assuming outer circle
                         layer.setStyle({
                             color: style.color,
                             weight: style.weight,
-                            fill: false, // No fill for the ring
+                            fill: false,
                             fillOpacity: 0
                         });
                         layer.setRadius(style.radius);
@@ -739,12 +817,6 @@
             drawnLayerGroup.clearLayers();
             currentMode = mode;
 
-            updateCursorStyle();
-
-            // Check marker visibility toggle
-            const showCenterMarkers = document.getElementById('toggle-show-center-marker').checked;
-            const showVertexCircles = document.getElementById('toggle-show-vertex-circle').checked;
-
             if (!coordsList || coordsList.length === 0) return false;
 
             // DRAWING LOGIC
@@ -764,12 +836,15 @@
             // 2. Draw Circles and Markers
             if (mode === 'point') {
                 coordsList.forEach(c => {
+                    const showVertexCircles = document.getElementById('toggle-show-vertex-circle').checked;
+                    const showCenterMarkers = document.getElementById('toggle-show-center-marker').checked;
+
                     // Outer Circle (If enabled)
                     if (showVertexCircles) {
                         L.circleMarker([c.lat, c.lng], {
                             color: style.color, weight: style.weight,
-                            fill: false, fillOpacity: 0, // No fill
-                            radius: style.radius || 20
+                            fill: false, fillOpacity: 0,
+                            radius: style.radius || 40
                         }).addTo(drawnLayerGroup);
                     }
 
@@ -782,10 +857,23 @@
                 });
             } else {
                 // Line/Poly Mode
+                const showVertexCircles = document.getElementById('toggle-show-vertex-circle').checked;
 
-                // Draw small dots for vertices to indicate path
-                coordsList.forEach(c => {
-                    L.circleMarker([c.lat, c.lng], { color: style.color, radius: 3, fillOpacity: 1, stroke: false }).addTo(drawnLayerGroup);
+                // ** EDIT HANDLES ** (Draggable Markers)
+                coordsList.forEach((c, index) => {
+                    const handle = L.marker([c.lat, c.lng], {
+                        draggable: true,
+                        icon: L.divIcon({
+                            className: 'edit-handle-icon', // Custom CSS
+                            iconSize: [10, 10],
+                            iconAnchor: [5, 5]
+                        })
+                    }).addTo(drawnLayerGroup);
+
+                    handle.on('dragend', function (e) {
+                        const newPos = e.target.getLatLng();
+                        updateCoordinateAtIndex(index, newPos);
+                    });
                 });
 
                 // Calculate Center and Max Distance for Auto Radius
@@ -802,7 +890,6 @@
                     const centerLatLng = L.latLng(centerLat, centerLng);
 
                     // AUTO-CALCULATE RADIUS
-                    // Get center point in pixels
                     const centerPoint = map.latLngToLayerPoint(centerLatLng);
                     let maxDist = 0;
                     coordsList.forEach(c => {
@@ -814,11 +901,9 @@
                     // Add padding and update input
                     const newRadius = Math.ceil(maxDist + 20); // +20px padding
 
-                    // Update the input field
                     const radiusInput = document.getElementById('point-radius');
                     const radiusDisplay = document.getElementById('radius-display');
 
-                    // Adjust slider max if the calculated radius is too large
                     if (newRadius > parseInt(radiusInput.max)) {
                         radiusInput.max = newRadius + 100;
                     }
@@ -826,49 +911,50 @@
                     radiusInput.value = newRadius;
                     radiusDisplay.textContent = newRadius + "px";
 
-                    // Use new radius
                     const drawRadius = newRadius;
 
                     // Draw ONE large circle at the center
                     if (showVertexCircles) {
                         L.circleMarker([centerLat, centerLng], {
                             color: style.color, weight: style.weight,
-                            fill: false, fillOpacity: 0, // No fill
+                            fill: false, fillOpacity: 0,
                             radius: drawRadius
                         }).addTo(drawnLayerGroup);
                     }
                 }
             }
 
-            // View Adjustment Logic
-            if (mode !== 'point' && coordsList.length > 1) {
-                // map.fitBounds(L.latLngBounds(coordsList.map(c => [c.lat, c.lng])), { padding: [50, 50] });
-            } else if (mode !== 'point' && coordsList.length === 1) {
-                // map.setView(...) handled externally for updates
-            }
-
-            // For Point mode
+            // For Point mode Force Center Logic
             if (mode === 'point' && coordsList.length === 1) {
                 const c = coordsList[0];
                 const dist = Math.abs(c.lat - map.getCenter().lat) + Math.abs(c.lng - map.getCenter().lng);
                 const fixed = document.getElementById('toggle-fixed-marker').checked;
 
-                // FORCE CENTER if forceCenter is true (manual update), OR if Fixed mode and far away
+                // Force center if manually updated (forceCenter=true) OR fixed mode
                 if (forceCenter || (fixed && dist > 0.00001)) {
-                    map.setView([c.lat, c.lng], map.getZoom(), { animate: false });
-                } else if (!fixed && forceCenter) {
-                    // Manual update in non-fixed mode also centers
                     map.setView([c.lat, c.lng], map.getZoom(), { animate: false });
                 }
             }
 
             if (coordsList.length > 0) {
-                // Update Overlay Coords based on the first item (marker/start point)
                 currentOverlayCoords = { lat: coordsList[0].lat, lng: coordsList[0].lng };
                 updateOverlays(coordsList[0].lat, coordsList[0].lng);
             }
             return true;
         };
+
+        function updateCoordinateAtIndex(index, latlng) {
+            const ta = document.getElementById('coord-input-multi');
+            const lines = ta.value.trim().split('\n');
+
+            if (index >= 0 && index < lines.length) {
+                lines[index] = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+                ta.value = lines.join('\n');
+
+                // Trigger update button to refresh map
+                document.getElementById('btn-update').click();
+            }
+        }
 
         function updateOverlays(lat, lng) {
             const showUrl = document.getElementById('toggle-show-url').checked;
@@ -905,9 +991,7 @@
             const singleContainer = document.getElementById('single-input-container');
             const multiContainer = document.getElementById('multi-input-container');
             const toggleFixedContainer = document.getElementById('toggle-fixed-container');
-            const interactionModeGroup = document.getElementById('interaction-mode-group');
             const centerMarkerGroup = document.getElementById('center-marker-group');
-            // const pointRadiusGroup = document.getElementById('point-radius-group'); // Now always visible
 
             drawMode.addEventListener('change', (e) => {
                 const mode = e.target.value;
@@ -917,41 +1001,41 @@
                 const qrNoteText = document.getElementById('qr-note-text');
                 const toggleVertexCircle = document.getElementById('toggle-show-vertex-circle');
 
+                // Finish any existing drawing session
+                finishDrawing();
+
                 if (mode === 'point') {
                     singleContainer.classList.remove('hidden');
                     multiContainer.classList.add('hidden');
                     toggleFixedContainer.classList.remove('hidden');
                     centerMarkerGroup.classList.remove('hidden');
-                    interactionModeGroup.classList.add('hidden');
                     qrNoteText.textContent = '※URLとQRコードに設定される緯度経度は、赤い円の中心座標';
-                    toggleVertexCircle.checked = true; // Auto check for Point
+                    toggleVertexCircle.checked = true;
                 } else {
                     // Line or Polygon
                     singleContainer.classList.add('hidden');
                     multiContainer.classList.remove('hidden');
                     toggleFixedContainer.classList.add('hidden');
                     centerMarkerGroup.classList.add('hidden');
-                    interactionModeGroup.classList.remove('hidden');
                     qrNoteText.textContent = '※URLとQRコードに設定される緯度経度は、座標リストの1行目となる。';
-                    toggleVertexCircle.checked = false; // Auto uncheck for Line/Polygon
+                    toggleVertexCircle.checked = false; // Auto uncheck for Line/Polygon default
                 }
 
                 // Explicitly clear inputs when switching to line/poly
                 if (mode !== 'point') {
                     multiInput.value = '';
                     document.getElementById('btn-update').click();
+                    // Auto-start drawing mode when switching to line/poly
+                    if (!isDrawingMode) {
+                        toggleDrawingMode();
+                    }
                 } else {
                     document.getElementById('btn-update').click();
                 }
-
-                updateCursorStyle();
             });
 
-            // Interaction Mode Change (Update cursor)
-            const interactionRadios = document.querySelectorAll('input[name="interaction_mode"]');
-            interactionRadios.forEach(radio => {
-                radio.addEventListener('change', updateCursorStyle);
-            });
+            // Start Drawing Button
+            document.getElementById('btn-start-draw').addEventListener('click', toggleDrawingMode);
 
             // Undo Button Logic
             document.getElementById('btn-undo-coord').addEventListener('click', () => {
@@ -968,35 +1052,26 @@
                 }
             });
 
-            // Center Map Logic (Avg of Max/Min)
+            // Center Map Logic
             document.getElementById('btn-center-map').addEventListener('click', () => {
+                // Logic already embedded in updateMapJS autocalc, but we can force re-center
+                // by re-running calculation logic or simply using stored bounds.
+                // Simplified: Re-trigger update will re-calc center but not necessarily pan unless logic added.
+                // Re-using the logic from previous implementation:
                 const val = document.getElementById('coord-input-multi').value.trim();
                 if (!val) return;
-
                 const lines = val.split('\n');
                 let lats = [], lngs = [];
-
                 lines.forEach(line => {
                     const parts = line.replace(' ', '').replace('　', '').split(',');
                     if (parts.length >= 2) {
-                        const lat = parseFloat(parts[0]);
-                        const lng = parseFloat(parts[1]);
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            lats.push(lat);
-                            lngs.push(lng);
-                        }
+                        lats.push(parseFloat(parts[0]));
+                        lngs.push(parseFloat(parts[1]));
                     }
                 });
-
                 if (lats.length > 0) {
-                    const minLat = Math.min(...lats);
-                    const maxLat = Math.max(...lats);
-                    const minLng = Math.min(...lngs);
-                    const maxLng = Math.max(...lngs);
-
-                    const centerLat = (minLat + maxLat) / 2;
-                    const centerLng = (minLng + maxLng) / 2;
-
+                    const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+                    const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
                     map.panTo([centerLat, centerLng]);
                 }
             });
@@ -1011,22 +1086,20 @@
             // Toggles
             ['toggle-show-url', 'toggle-show-qr'].forEach(id => {
                 document.getElementById(id).addEventListener('change', () => {
-                    // Update using current overlay coords
                     updateOverlays(currentOverlayCoords.lat, currentOverlayCoords.lng);
                 });
             });
 
-            // Fixed Toggle Change (update cursor)
-            document.getElementById('toggle-fixed-marker').addEventListener('change', updateCursorStyle);
+            document.getElementById('toggle-fixed-marker').addEventListener('change', () => {
+                // Just force update
+            });
 
-            // Marker Visibility Toggles
             ['toggle-show-center-marker', 'toggle-show-vertex-circle'].forEach(id => {
                 document.getElementById(id).addEventListener('change', () => {
                     document.getElementById('btn-update').click();
                 });
             });
 
-            // Live Style Updates
             ['stroke-color', 'stroke-weight', 'point-radius'].forEach(id => {
                 document.getElementById(id).addEventListener('input', updateLiveStyles);
             });
@@ -1042,7 +1115,37 @@
             };
             document.getElementById('btn-portrait').onclick = () => setOrient(false);
             document.getElementById('btn-landscape').onclick = () => setOrient(true);
+
+            // Single Input Enter Key (Force Center)
+            document.getElementById('coord-input-single').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('btn-update').click();
+                }
+            });
+
+            // Single Input Update Button (Force Center)
+            document.getElementById('btn-update').addEventListener('click', () => {
+                const mode = document.getElementById('draw-mode').value;
+                if (mode === 'point') {
+                    // Pass true for forceCenter
+                    // But we can't pass arguments to click handler directly.
+                    // We rely on the python handler calling updateMapJS.
+                    // To support "Force Center on Manual Update", we need Python to know.
+                    // Alternative: We temporarily set a flag.
+                    window._forceCenterNextUpdate = true;
+                }
+            });
         }
+
+        // Monkey patch window.updateMapJS to check flag
+        const originalUpdateMap = window.updateMapJS;
+        window.updateMapJS = function (coordsList, mode, style, forceCenter) {
+            if (window._forceCenterNextUpdate) {
+                forceCenter = true;
+                window._forceCenterNextUpdate = false;
+            }
+            return originalUpdateMap(coordsList, mode, style, forceCenter);
+        };
 
         function fitPaperToScreen() {
             const container = document.getElementById('preview-container');
@@ -1163,21 +1266,15 @@
                     status_el.classList.remove("text-red-600")
                     status_el.classList.add("text-green-600")
 
-                success = window.updateMapJS(json.dumps(coords_list), mode, json.dumps(style), True)
+                success = window.updateMapJS(json.dumps(coords_list), mode, json.dumps(style), False)
 
         def on_download_click(event):
             window.downloadPDFJS()
-
-        def on_single_input_keypress(event):
-            if event.key == "Enter":
-                on_update_click(event)
 
         # Bind Events
         document.getElementById("btn-update").onclick = on_update_click
         document.getElementById("btn-download").onclick = on_download_click
         
-        # Bind Enter key specifically to the single input
-        document.getElementById("coord-input-single").onkeypress = on_single_input_keypress
     </script>
 </body>
 
