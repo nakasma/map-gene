@@ -558,6 +558,7 @@
         let isLandscape = false;
         let currentMode = 'point';
         let isDrawingMode = false;
+        let drawingModeStartTime = 0;  // Guard against immediate finishDrawing
         let currentCenter = { lat: 35.012018, lng: 135.767676 };
         // Current coords for overlays
         let currentOverlayCoords = { lat: 35.012018, lng: 135.767676 };
@@ -680,6 +681,9 @@
             document.addEventListener('keydown', (e) => {
                 if (!isDrawingMode) return;
 
+                // Ignore Enter in textarea (coord-input-multi)
+                if (e.target.id === 'coord-input-multi') return;
+
                 if (e.key === 'Enter') {
                     finishDrawing();
                 } else if (e.key === 'Escape') {
@@ -687,11 +691,18 @@
                 }
             });
 
-            // Click outside map to finish (Simple implementation on document body)
+            // Click outside map to finish
+            // Exclude: map itself, start-draw button, sidebar (aside), draw-mode selector
             document.body.addEventListener('click', (e) => {
-                if (isDrawingMode && !e.target.closest('#map') && !e.target.closest('#btn-start-draw')) {
-                    finishDrawing();
-                }
+                if (!isDrawingMode) return;
+                // Guard: ignore clicks within 300ms of drawing mode start
+                if (Date.now() - drawingModeStartTime < 300) return;
+                // Ignore clicks inside the map, sidebar, or draw controls
+                if (e.target.closest('#map')) return;
+                if (e.target.closest('#btn-start-draw')) return;
+                if (e.target.closest('aside')) return;
+                if (e.target.closest('#draw-mode')) return;
+                finishDrawing();
             });
 
             fitPaperToScreen();
@@ -717,6 +728,7 @@
             const mapContainer = document.getElementById('map');
 
             if (isDrawingMode) {
+                drawingModeStartTime = Date.now();  // Record start time for guard
                 btn.classList.add('active-mode');
                 btn.innerHTML = '<span class="material-icons">stop</span> 描画を終了';
                 mapContainer.classList.add('cursor-crosshair');
