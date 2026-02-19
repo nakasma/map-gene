@@ -349,21 +349,29 @@
         }
 
         /* ===== Text Box on Map ===== */
+        /*
+         * html2canvas互換性のため、flexbox/table/vertical-alignは使用しない。
+         * 垂直中央揃えは line-height = 要素高さ で実現する（最も安定）。
+         * フォントサイズ変更時は JS側で line-height も同期更新する。
+         */
         .map-textbox {
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid #999;
             border-radius: 4px;
             padding: 0 8px;
-            /* 上下paddingはcontentのheightで制御 */
             font-size: 14px;
+            line-height: 31px;
+            /* getTextBoxHeight(14) = 31px と同値 */
+            height: 31px;
             color: #222;
             cursor: move;
             white-space: nowrap;
             min-width: 30px;
-            height: 32px;
             user-select: none;
             transition: box-shadow 0.15s, border-color 0.15s;
             box-sizing: border-box;
+            overflow: visible;
+            position: relative;
         }
 
         .map-textbox:hover {
@@ -381,34 +389,24 @@
             box-shadow: 0 0 0 2px rgba(26, 35, 126, 0.2);
         }
 
-        .map-textbox-content {
-            display: table-cell;
-            vertical-align: middle;
-            height: 100%;
-        }
-
         .map-textbox-input {
             border: none;
             outline: none;
             background: transparent;
-            font: inherit;
+            font-size: inherit;
+            font-family: inherit;
             color: inherit;
             min-width: 40px;
-            width: 100%;
             padding: 0;
             margin: 0;
-            line-height: normal;
-            /* inputのline-heightはnormalにしてvertical-alignに任せる */
-            display: inline-block;
-            vertical-align: middle;
+            height: 31px;
+            /* 親と同じ高さ */
+            line-height: 31px;
+            /* 親と同じ line-height */
+            box-sizing: border-box;
         }
 
-        .map-textbox-display {
-            display: inline-block;
-            vertical-align: middle;
-            line-height: normal;
-            min-height: 1em;
-        }
+        /* .map-textbox-display — span要素、親のline-heightを継承するのでスタイル不要 */
 
         /* Style Popup */
         .textbox-style-popup {
@@ -983,6 +981,12 @@
             }
         }
 
+        // テキストボックスの高さを計算（フォントサイズに応じて）
+        // line-height = height で垂直中央を保証（html2canvas互換）
+        function getTextBoxHeight(fontSizePx) {
+            return Math.round(fontSizePx * 2.2);
+        }
+
         function createTextBox(latlng) {
             if (textAddCooldown) return;
             textAddCooldown = true;
@@ -996,7 +1000,7 @@
                 borderColor: '#999999'
             };
 
-            // Create DivIcon with input in a table-cell wrapper
+            // Create DivIcon with input (simple structure, no wrapper)
             const container = document.createElement('div');
             container.className = 'map-textbox editing';
             container.dataset.tbId = id;
@@ -1005,16 +1009,19 @@
             container.style.background = defaultStyle.bgColor;
             container.style.borderColor = defaultStyle.borderColor;
 
-            const content = document.createElement('div');
-            content.className = 'map-textbox-content';
-            container.appendChild(content);
+            // line-height=height パターン: フォントサイズに応じた高さを設定
+            const boxH = getTextBoxHeight(parseInt(defaultStyle.fontSize));
+            container.style.height = boxH + 'px';
+            container.style.lineHeight = boxH + 'px';
 
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'map-textbox-input';
             input.placeholder = 'テキストを入力...';
             input.style.color = defaultStyle.color;
-            content.appendChild(input);
+            input.style.height = boxH + 'px';
+            input.style.lineHeight = boxH + 'px';
+            container.appendChild(input);
 
             const icon = L.divIcon({
                 html: container.outerHTML,
@@ -1134,21 +1141,21 @@
             const container = el.querySelector('.map-textbox');
             if (!container) return;
 
-            const content = container.querySelector('.map-textbox-content');
-            if (!content) return;
-
             // Remove display span, show input
-            content.innerHTML = '';
+            container.innerHTML = '';
             container.classList.add('editing');
             container.classList.remove('selected');
 
+            const boxH = getTextBoxHeight(parseInt(tb.style.fontSize));
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'map-textbox-input';
             input.value = tb.text;
             input.style.color = tb.style.color;
             input.style.width = Math.max(40, tb.text.length * 9 + 20) + 'px';
-            content.appendChild(input);
+            input.style.height = boxH + 'px';
+            input.style.lineHeight = boxH + 'px';
+            container.appendChild(input);
 
             // Remove style popup if visible
             const popup = container.querySelector('.textbox-style-popup');
@@ -1200,9 +1207,6 @@
             const container = el.querySelector('.map-textbox');
             if (!input || !container) return;
 
-            const content = container.querySelector('.map-textbox-content');
-            if (!content) return;
-
             const text = input.value.trim();
 
             // Delete if empty
@@ -1214,13 +1218,13 @@
             tb.text = text;
 
             // Replace input with display
-            content.innerHTML = '';
+            container.innerHTML = '';
             container.classList.remove('editing');
 
             const span = document.createElement('span');
             span.className = 'map-textbox-display';
             span.textContent = text;
-            content.appendChild(span);
+            container.appendChild(span);
 
             // Re-enable dragging
             tb.marker.dragging.enable();
@@ -1309,10 +1313,13 @@
                 container.style.background = e.target.value;
             });
 
-            // Font size change
+            // Font size change — line-height/heightも同期更新
             popup.querySelector('.tb-size').addEventListener('change', (e) => {
                 tb.style.fontSize = e.target.value;
                 container.style.fontSize = e.target.value;
+                const boxH = getTextBoxHeight(parseInt(e.target.value));
+                container.style.height = boxH + 'px';
+                container.style.lineHeight = boxH + 'px';
             });
 
             // Delete button
