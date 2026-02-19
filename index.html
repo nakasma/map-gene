@@ -353,19 +353,16 @@
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid #999;
             border-radius: 4px;
-            padding: 4px 8px;
-            /* table-cellのpaddingとして機能させる */
+            padding: 0 8px;
+            /* 上下paddingはcontentのheightで制御 */
             font-size: 14px;
             color: #222;
             cursor: move;
             white-space: nowrap;
             min-width: 30px;
             height: 32px;
-            /* 高さを明示して中央揃えを安定させる */
             user-select: none;
             transition: box-shadow 0.15s, border-color 0.15s;
-            display: table;
-            /* FlexboxからTableに変更 */
             box-sizing: border-box;
         }
 
@@ -384,6 +381,12 @@
             box-shadow: 0 0 0 2px rgba(26, 35, 126, 0.2);
         }
 
+        .map-textbox-content {
+            display: table-cell;
+            vertical-align: middle;
+            height: 100%;
+        }
+
         .map-textbox-input {
             border: none;
             outline: none;
@@ -394,15 +397,16 @@
             width: 100%;
             padding: 0;
             margin: 0;
-            line-height: 1.2;
-            display: table-cell;
+            line-height: normal;
+            /* inputのline-heightはnormalにしてvertical-alignに任せる */
+            display: inline-block;
             vertical-align: middle;
         }
 
         .map-textbox-display {
-            display: table-cell;
+            display: inline-block;
             vertical-align: middle;
-            line-height: 1.2;
+            line-height: normal;
             min-height: 1em;
         }
 
@@ -992,7 +996,7 @@
                 borderColor: '#999999'
             };
 
-            // Create DivIcon with input
+            // Create DivIcon with input in a table-cell wrapper
             const container = document.createElement('div');
             container.className = 'map-textbox editing';
             container.dataset.tbId = id;
@@ -1001,12 +1005,16 @@
             container.style.background = defaultStyle.bgColor;
             container.style.borderColor = defaultStyle.borderColor;
 
+            const content = document.createElement('div');
+            content.className = 'map-textbox-content';
+            container.appendChild(content);
+
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'map-textbox-input';
             input.placeholder = 'テキストを入力...';
             input.style.color = defaultStyle.color;
-            container.appendChild(input);
+            content.appendChild(input);
 
             const icon = L.divIcon({
                 html: container.outerHTML,
@@ -1126,8 +1134,11 @@
             const container = el.querySelector('.map-textbox');
             if (!container) return;
 
+            const content = container.querySelector('.map-textbox-content');
+            if (!content) return;
+
             // Remove display span, show input
-            container.innerHTML = '';
+            content.innerHTML = '';
             container.classList.add('editing');
             container.classList.remove('selected');
 
@@ -1137,7 +1148,7 @@
             input.value = tb.text;
             input.style.color = tb.style.color;
             input.style.width = Math.max(40, tb.text.length * 9 + 20) + 'px';
-            container.appendChild(input);
+            content.appendChild(input);
 
             // Remove style popup if visible
             const popup = container.querySelector('.textbox-style-popup');
@@ -1189,6 +1200,9 @@
             const container = el.querySelector('.map-textbox');
             if (!input || !container) return;
 
+            const content = container.querySelector('.map-textbox-content');
+            if (!content) return;
+
             const text = input.value.trim();
 
             // Delete if empty
@@ -1200,13 +1214,13 @@
             tb.text = text;
 
             // Replace input with display
-            container.innerHTML = '';
+            content.innerHTML = '';
             container.classList.remove('editing');
 
             const span = document.createElement('span');
             span.className = 'map-textbox-display';
             span.textContent = text;
-            container.appendChild(span);
+            content.appendChild(span);
 
             // Re-enable dragging
             tb.marker.dragging.enable();
