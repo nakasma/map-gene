@@ -353,17 +353,19 @@
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid #999;
             border-radius: 4px;
-            padding: 6px 8px;
+            padding: 4px 8px;
+            /* table-cellのpaddingとして機能させる */
             font-size: 14px;
-            line-height: 1.2;
             color: #222;
             cursor: move;
             white-space: nowrap;
             min-width: 30px;
+            height: 32px;
+            /* 高さを明示して中央揃えを安定させる */
             user-select: none;
             transition: box-shadow 0.15s, border-color 0.15s;
-            display: flex;
-            align-items: center;
+            display: table;
+            /* FlexboxからTableに変更 */
             box-sizing: border-box;
         }
 
@@ -389,15 +391,17 @@
             font: inherit;
             color: inherit;
             min-width: 40px;
-            width: auto;
+            width: 100%;
             padding: 0;
             margin: 0;
             line-height: 1.2;
-            display: block;
+            display: table-cell;
+            vertical-align: middle;
         }
 
         .map-textbox-display {
-            display: block;
+            display: table-cell;
+            vertical-align: middle;
             line-height: 1.2;
             min-height: 1em;
         }
